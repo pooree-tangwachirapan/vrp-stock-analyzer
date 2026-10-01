@@ -1,0 +1,47 @@
+{
+ "schema": "vrp-inputs/1",
+ "generatedAt": "2026-10-02T01:05:09+07:00",
+ "symbol": "DIA",
+ "sources": {
+  "options": "CBOE delayed quotes (cdn.cboe.com)",
+  "optionsTimestamp": "2026-10-01 18:04:33",
+  "prices": "Yahoo Finance via yfinance (DIA, split-adjusted)",
+  "ivHistory": "fetch\\iv_history\\DIA.csv (1 observations, latest logged for 2026-10-01)"
+ },
+ "expiry": "2026-11-06",
+ "notes": [
+  "No expiry between 30 and 45 days has a strike in the delta band with 100 open contracts, so the closest to 38 days was used and gate G3 will report what it finds.",
+  "IV30 interpolated between 28d (14.14%) and 35d (14.30%).",
+  "No strike between delta 0.15 and 0.30 carries 100 open contracts, so the nearest delta was used and gate G3 will say so.",
+  "Yahoo returned no earnings dates.",
+  "The ATM straddle prices a 3.09% expected move, but the earnings date is unknown, so it is not being treated as an event jump. Set it by hand if a report falls inside this expiry.",
+  "Price is -3.4% against its 50-day average (downtrend).",
+  "IV Percentile needs 60 daily observations and the log holds 1. Run this daily and it will fill in; until then the field is null and gate G5 stays UNKNOWN."
+ ],
+ "inputs": {
+  "iv30": 14.1875,
+  "ivPut25": 16.2417,
+  "ivCall25": 13.269,
+  "ivM1": 13.7455,
+  "ivM2": 14.557,
+  "ivRank": null,
+  "iv1yLow": null,
+  "iv1yHigh": null,
+  "ivPercentile": null,
+  "spot": 508.63,
+  "dte": 35,
+  "spreadPct": 5.99,
+  "openInterest": 29,
+  "shortDelta": 0.2646,
+  "shortStrike": 495.0,
+  "earningsDays": null,
+  "impliedMovePct": null,
+  "straddleMovePct": 3.09,
+  "historicalMoves": null,
+  "spreadWidth": 5.0,
+  "credit": 0.92,
+  "trendDirection": "down"
+ },
+ "ohlcFile": "DIA_ohlc.csv",
+ "ohlcRows": 252
+}

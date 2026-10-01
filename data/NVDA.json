@@ -1,0 +1,50 @@
+{
+ "schema": "vrp-inputs/1",
+ "generatedAt": "2026-10-02T01:04:56+07:00",
+ "symbol": "NVDA",
+ "sources": {
+  "options": "CBOE delayed quotes (cdn.cboe.com)",
+  "optionsTimestamp": "2026-10-01 18:03:38",
+  "prices": "Yahoo Finance via yfinance (NVDA, split-adjusted)",
+  "ivHistory": "fetch\\iv_history\\NVDA.csv (1 observations, latest logged for 2026-10-01)"
+ },
+ "expiry": "2026-11-06",
+ "notes": [
+  "IV30 interpolated between 28d (30.93%) and 35d (31.35%).",
+  "Short strike 215 at delta 0.218, chosen as the closest to 0.25 among strikes inside the 0.15-0.30 band that carry at least 100 open contracts.",
+  "Earnings are 46 days out and this expiry runs 35 days, so no event sits inside the contract. The 6.75% the straddle prices is ordinary diffusive move, not a jump, and stripping it out would understate the diffusive vol. impliedMovePct is left null on purpose.",
+  "Price is +5.9% against its 50-day average (uptrend).",
+  "IV Percentile needs 60 daily observations and the log holds 1. Run this daily and it will fill in; until then the field is null and gate G5 stays UNKNOWN."
+ ],
+ "inputs": {
+  "iv30": 31.0512,
+  "ivPut25": 33.2684,
+  "ivCall25": 29.9377,
+  "ivM1": 30.2942,
+  "ivM2": 36.0185,
+  "ivRank": null,
+  "iv1yLow": null,
+  "iv1yHigh": null,
+  "ivPercentile": null,
+  "spot": 231.35,
+  "dte": 35,
+  "spreadPct": 6.25,
+  "openInterest": 707,
+  "shortDelta": 0.2185,
+  "shortStrike": 215.0,
+  "earningsDays": 46,
+  "impliedMovePct": null,
+  "straddleMovePct": 6.75,
+  "historicalMoves": [
+   3.15,
+   5.46,
+   1.77,
+   8.74
+  ],
+  "spreadWidth": 5.0,
+  "credit": 0.9,
+  "trendDirection": "up"
+ },
+ "ohlcFile": "NVDA_ohlc.csv",
+ "ohlcRows": 252
+}

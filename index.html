@@ -361,6 +361,12 @@ footer.disc b{color:var(--text)}
           </div>
           <div id="calc-status" class="muted" style="margin-bottom:10px"></div>
 
+          <div class="f" id="saved-wrap" style="display:none">
+            <label>Ready to open &mdash; refreshed daily, no setup needed</label>
+            <div class="flexrow" id="saved-list"></div>
+            <span class="hint" id="saved-when"></span>
+          </div>
+
           <div class="f">
             <label for="json-file">&hellip; or an inputs JSON written by the fetcher</label>
             <input type="file" id="json-file" accept=".json,application/json">
@@ -2317,6 +2323,8 @@ var GATE_PLAIN = {
   G6: "The side we would sell has no edge of its own once the stock's own up and down moves are accounted for."
 };
 
+function cfgBand(cfg, which){ return which === "enter" ? cfg.scoreEnter : cfg.scoreHalf; }
+
 function renderAnswer(ctx){
   var d = ctx.decision, el = $("banner");
   var VD = ENGINE.Verdict, SD = ENGINE.Side;
@@ -2345,11 +2353,36 @@ function renderAnswer(ctx){
     }
   }
 
+  /* A missing input scores zero, which is right — you cannot award points for
+     something you did not measure. But the ENTER and HALF bands were set
+     assuming every input is there, so an unknown silently drags the verdict
+     down and nothing on screen says why. Show the ceiling that is actually
+     reachable, and name what is holding it. */
+  var lost = [];
+  if (nval("in-ivp") === null) lost.push(["IV percentile", 2]);
+  if (!d.legs || d.side === SD.NEITHER) lost.push(["a chosen side", 2]);
+  if (ctx.decision.gates.some(function(g){ return g.code === "G2" && g.result === "UNKNOWN"; }))
+    lost.push(["the earnings date", 1]);
+  if (nval("in-spread") === null || nval("in-oi") === null) lost.push(["liquidity", 1]);
+  if (sval("in-trend") === "" ) lost.push(["the trend", 1]);
+  var unreachable = lost.reduce(function(a, x){ return a + x[1]; }, 0);
+  var ceiling = d.maxScore - unreachable;
+
+  if (unreachable > 0){
+    var what = lost.map(function(x){ return x[0]; }).join(", ");
+    sub = (sub ? sub + " " : "") +
+      unreachable + " of the " + d.maxScore + " points cannot be earned at all without " + what +
+      ", so the most this could score today is " + ceiling + ". " +
+      (ceiling < cfgBand(ctx.cfg, "enter")
+        ? "A full-size entry is out of reach until that data exists, whatever the trade looks like."
+        : "");
+  }
+
   var nums = [
     ["VRP", V.num(d.effectiveRatio, 2) + "×", d.effectiveRatio >= 1 ? "pos" : "neg"],
     ["Implied", V.pct(ctx.vrp.iv, 1), ""],
     ["Realized", V.pct(ctx.vrp.rv, 1), ""],
-    ["Score", d.score + "/" + d.maxScore, ""],
+    ["Score", d.score + " of " + (unreachable ? ceiling + " possible" : d.maxScore), ""],
     ["Confidence", d.confidence, ""]
   ];
   el.setAttribute("data-a", mode);
@@ -2896,9 +2929,10 @@ function helperAdvice(){
       "<code>python vrp.py</code> (or double-click <code>VRP.bat</code>) and it opens there by itself.";
   }
   if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1"){
-    return "This is the hosted copy, and browsers will not let a page on this address read CBOE or " +
-      "Yahoo. Run <code>python vrp.py</code> on your own machine and use " +
-      '<a href="' + LOCAL_URL + '">' + LOCAL_URL + "</a>, or load a CSV or inputs JSON below.";
+    return "Live lookups need the helper on your own machine, because browsers will not let a page " +
+      "on this address read CBOE or Yahoo. Use the ready-made symbols below, refreshed every " +
+      "weekday after the close, or run <code>python vrp.py</code> and open " +
+      '<a href="' + LOCAL_URL + '">' + LOCAL_URL + "</a> for any ticker you like.";
   }
   return "The helper did not answer. Start it with <code>python vrp.py</code> in the project folder, " +
     "then press Calculate again — no need to reload.";
@@ -3032,7 +3066,12 @@ function loadInputsJSON(text, filename){
   var label = (j.symbol || filename) + " — " + ((j.sources && j.sources.prices) || "inputs JSON");
   setData(rows.join("\n"), label);
   if (!state.data) throw new Error("The price rows in that file did not pass validation; see above.");
+  applyInputs(j, filename);
+}
 
+/* Shared by every way data arrives: a pasted file, the local helper, or the
+   snapshot the daily job leaves beside the page. */
+function applyInputs(j, filename){
   var inp = j.inputs || {};
   var filled = 0, missing = [];
   Object.keys(JSON_FIELD_MAP).forEach(function(key){
@@ -3066,6 +3105,56 @@ function loadInputsJSON(text, filename){
     var extra = j.notes.map(function(n){ return '<div class="msg note">' + V.esc(n) + "</div>"; }).join("");
     $("messages").insertAdjacentHTML("beforeend", extra);
   }
+}
+
+/* ------------------- data the daily job already prepared -------------------
+   Browsers refuse to read CBOE or Yahoo from a page served anywhere but your
+   own machine, and no choice of language changes that — it is the origin that
+   is blocked, not the code. Running Python in the browser would hit the same
+   wall. So the scheduled job, which runs where no browser rule applies,
+   fetches once a day and leaves the result next to the page. Same origin, so
+   the page may read it, which means a phone needs nothing installed at all.
+   The numbers are from the last close rather than live, which is the right
+   resolution for a decision about a 30-to-45 day contract. */
+function loadSavedIndex(){
+  fetch("data/index.json", { cache: "no-store" })
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(idx){
+      if (!idx || !idx.symbols) return;
+      var syms = Object.keys(idx.symbols).sort();
+      if (!syms.length) return;
+      $("saved-list").innerHTML = syms.map(function(s){
+        return '<button type="button" class="sm" data-saved="' + V.esc(s) + '">' + V.esc(s) + "</button>";
+      }).join("");
+      var when = idx.generatedAt ? new Date(idx.generatedAt) : null;
+      $("saved-when").textContent = syms.length + " symbols" +
+        (when && !isNaN(when.getTime()) ? ", updated " + when.toLocaleString() : "");
+      $("saved-wrap").style.display = "";
+    })
+    .catch(function(){ /* nothing published here; the file routes still work */ });
+}
+
+function loadSaved(sym){
+  $("calc-status").innerHTML = "Opening <b>" + V.esc(sym) + "</b>…";
+  Promise.all([
+    fetch("data/" + encodeURIComponent(sym) + ".json", { cache: "no-store" }).then(function(r){
+      if (!r.ok) throw new Error("No saved data for " + sym + ".");
+      return r.json();
+    }),
+    fetch("data/" + encodeURIComponent(sym) + "_ohlc.csv", { cache: "no-store" }).then(function(r){
+      if (!r.ok) throw new Error("No saved prices for " + sym + ".");
+      return r.text();
+    })
+  ]).then(function(res){
+    var meta = res[0], csv = res[1];
+    setData(csv, sym + " — saved " + String(meta.generatedAt || "").slice(0, 16).replace("T", " "));
+    if (!state.data) throw new Error("The saved prices for " + sym + " did not pass validation.");
+    applyInputs(meta, sym);
+    $("in-symbol").value = sym;
+    $("calc-status").innerHTML = "";
+  }).catch(function(e){
+    $("calc-status").innerHTML = '<span style="color:var(--fail)">' + V.esc(e.message) + "</span>";
+  });
 }
 
 /* ------------------------------ demo input ------------------------------ */
@@ -3135,6 +3224,10 @@ function wire(){
   });
 
   $("btn-calc").addEventListener("click", calculate);
+  $("saved-list").addEventListener("click", function(ev){
+    var btn = ev.target.closest("button[data-saved]");
+    if (btn) loadSaved(btn.getAttribute("data-saved"));
+  });
   $("in-symbol").addEventListener("keydown", function(ev){
     if (ev.key === "Enter" && !$("btn-calc").disabled) calculate();
   });
@@ -3191,6 +3284,7 @@ function wire(){
 
   renderConfigEditor();
   probeHelper();
+  loadSavedIndex();
   analyze();
 }
 /* ===========================================================================

@@ -1,0 +1,50 @@
+{
+ "schema": "vrp-inputs/1",
+ "generatedAt": "2026-10-02T01:05:01+07:00",
+ "symbol": "TSLA",
+ "sources": {
+  "options": "CBOE delayed quotes (cdn.cboe.com)",
+  "optionsTimestamp": "2026-10-01 18:04:40",
+  "prices": "Yahoo Finance via yfinance (TSLA, split-adjusted)",
+  "ivHistory": "fetch\\iv_history\\TSLA.csv (1 observations, latest logged for 2026-10-01)"
+ },
+ "expiry": "2026-11-06",
+ "notes": [
+  "IV30 interpolated between 28d (45.34%) and 35d (44.22%).",
+  "Short strike 330 at delta 0.258, chosen as the closest to 0.25 among strikes inside the 0.15-0.30 band that carry at least 100 open contracts.",
+  "Earnings land in 19 days, inside this 35-day expiry, so the ATM straddle (39.70) is read as the implied event move using the straddle factor 0.85 from the calibration layer.",
+  "Price is +2.7% against its 50-day average (uptrend).",
+  "IV Percentile needs 60 daily observations and the log holds 1. Run this daily and it will fill in; until then the field is null and gate G5 stays UNKNOWN."
+ ],
+ "inputs": {
+  "iv30": 45.0215,
+  "ivPut25": 44.5953,
+  "ivCall25": 44.7274,
+  "ivM1": 39.9489,
+  "ivM2": 43.01,
+  "ivRank": null,
+  "iv1yLow": null,
+  "iv1yHigh": null,
+  "ivPercentile": null,
+  "spot": 356.62,
+  "dte": 35,
+  "spreadPct": 2.41,
+  "openInterest": 858,
+  "shortDelta": 0.2578,
+  "shortStrike": 330.0,
+  "earningsDays": 19,
+  "impliedMovePct": 9.46,
+  "straddleMovePct": 9.46,
+  "historicalMoves": [
+   2.28,
+   3.45,
+   3.56,
+   14.52
+  ],
+  "spreadWidth": 5.0,
+  "credit": 1.35,
+  "trendDirection": "up"
+ },
+ "ohlcFile": "TSLA_ohlc.csv",
+ "ohlcRows": 252
+}

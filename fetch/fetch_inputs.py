@@ -623,6 +623,52 @@ def analyze(payload: dict) -> None:
         print(f"  ! {w}")
 
 
+def publish(payload: dict, out_dir: str) -> None:
+    """Write what a hosted page can read back from its own origin.
+
+    The browser cannot call CBOE or Yahoo -- neither sends CORS headers, so a
+    page on github.io is refused no matter what language the code is in. The
+    way round it is for something without a browser to do the fetching and
+    leave the result next to the page, which is what the scheduled job does.
+
+    Prices go out as line-oriented CSV rather than inside the JSON on purpose.
+    A day's update shifts the window by one row, so git stores a few bytes of
+    delta instead of rewriting a whole blob, and a year of daily commits stays
+    small enough to ignore.
+    """
+    os.makedirs(out_dir, exist_ok=True)
+    sym = payload["symbol"]
+
+    with open(os.path.join(out_dir, f"{sym}_ohlc.csv"), "w", encoding="utf-8", newline="\n") as f:
+        f.write("Date,Open,High,Low,Close\n")
+        for r in payload["ohlc"]:
+            f.write(f"{r['date']},{r['open']},{r['high']},{r['low']},{r['close']}\n")
+
+    meta = {k: v for k, v in payload.items() if k != "ohlc"}
+    meta["ohlcFile"] = f"{sym}_ohlc.csv"
+    meta["ohlcRows"] = len(payload["ohlc"])
+    with open(os.path.join(out_dir, f"{sym}.json"), "w", encoding="utf-8") as f:
+        json.dump(meta, f, indent=1)
+
+    index_path = os.path.join(out_dir, "index.json")
+    index = {"schema": "vrp-index/1", "symbols": {}}
+    if os.path.exists(index_path):
+        try:
+            with open(index_path, encoding="utf-8") as f:
+                index = json.load(f)
+        except (OSError, ValueError):
+            pass
+    index.setdefault("symbols", {})[sym] = {
+        "updated": payload["generatedAt"],
+        "optionsTimestamp": payload["sources"].get("optionsTimestamp"),
+        "expiry": payload.get("expiry"),
+        "dte": payload["inputs"].get("dte"),
+    }
+    index["generatedAt"] = payload["generatedAt"]
+    with open(index_path, "w", encoding="utf-8") as f:
+        json.dump(index, f, indent=1, sort_keys=True)
+
+
 def main() -> int:
     # The Python reference carries Thai gate text. Without this the Windows
     # console renders it as mojibake under the legacy codepage.
@@ -634,6 +680,8 @@ def main() -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("symbol", nargs="*", help="AAPL, QQQ, or _SPX for index options")
     ap.add_argument("--watchlist", help="file of symbols, one per line, # for comments")
+    ap.add_argument("--publish", metavar="DIR",
+                    help="also write per-symbol files a hosted page can read (for the daily job)")
     ap.add_argument("--log-only", action="store_true",
                     help="only append to the IV history; write no JSON (for the daily job)")
     ap.add_argument("--dte", type=int, default=38, help="target days to expiry (default 38)")
@@ -674,7 +722,9 @@ def main() -> int:
             iv = payload["inputs"]["iv30"]
             hist = payload["sources"]["ivHistory"]
             print(f"  {sym:<8} IV30 {('null' if iv is None else format(iv, '.2f') + '%'):<8} {hist}")
-            if not a.log_only:
+            if a.publish:
+                publish(payload, a.publish)
+            if not a.log_only and not a.publish:
                 os.makedirs(a.out, exist_ok=True)
                 with open(os.path.join(a.out, f"{sym}_vrp.json"), "w", encoding="utf-8") as f:
                     json.dump(payload, f, indent=2)

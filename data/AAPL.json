@@ -1,0 +1,50 @@
+{
+ "schema": "vrp-inputs/1",
+ "generatedAt": "2026-10-02T01:04:47+07:00",
+ "symbol": "AAPL",
+ "sources": {
+  "options": "CBOE delayed quotes (cdn.cboe.com)",
+  "optionsTimestamp": "2026-10-01 18:03:38",
+  "prices": "Yahoo Finance via yfinance (AAPL, split-adjusted)",
+  "ivHistory": "fetch\\iv_history\\AAPL.csv (1 observations, latest logged for 2026-10-01)"
+ },
+ "expiry": "2026-11-06",
+ "notes": [
+  "IV30 interpolated between 28d (26.25%) and 35d (26.14%).",
+  "Short strike 315 at delta 0.275, chosen as the closest to 0.25 among strikes inside the 0.15-0.30 band that carry at least 100 open contracts.",
+  "Earnings land in 27 days, inside this 35-day expiry, so the ATM straddle (21.77) is read as the implied event move using the straddle factor 0.85 from the calibration layer.",
+  "Price is +2.1% against its 50-day average (uptrend).",
+  "IV Percentile needs 60 daily observations and the log holds 1. Run this daily and it will fill in; until then the field is null and gate G5 stays UNKNOWN."
+ ],
+ "inputs": {
+  "iv30": 26.2211,
+  "ivPut25": 28.1529,
+  "ivCall25": 24.868,
+  "ivM1": 23.1718,
+  "ivM2": 25.8957,
+  "ivRank": null,
+  "iv1yLow": null,
+  "iv1yHigh": null,
+  "ivPercentile": null,
+  "spot": 329.39,
+  "dte": 35,
+  "spreadPct": 11.76,
+  "openInterest": 388,
+  "shortDelta": 0.2751,
+  "shortStrike": 315.0,
+  "earningsDays": 27,
+  "impliedMovePct": 5.62,
+  "straddleMovePct": 5.62,
+  "historicalMoves": [
+   0.38,
+   0.46,
+   3.24,
+   7.35
+  ],
+  "spreadWidth": 5.0,
+  "credit": 1.2,
+  "trendDirection": "up"
+ },
+ "ohlcFile": "AAPL_ohlc.csv",
+ "ohlcRows": 252
+}
