@@ -296,6 +296,41 @@ footer.disc b{color:var(--text)}
 .answer[data-a="no"] .a-verdict{color:var(--fail); text-shadow:0 0 18px color-mix(in srgb, var(--fail) 55%, transparent)}
 .answer[data-a="none"] .a-verdict{color:var(--text-faint); font-size:1.5rem}
 
+/* Board: every symbol at a glance, so the first screen answers "is there
+   anything worth doing today" before anyone types. */
+.board{margin-top:16px}
+.board .bhd{display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap}
+.board .bhd h2{font-size:.95rem}
+.bgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(168px,1fr)); gap:10px}
+.tile{
+  position:relative; text-align:left; padding:12px 13px; border-radius:10px; cursor:pointer;
+  background:var(--surface); border:1px solid var(--border); color:var(--text);
+  font:inherit; overflow:hidden; transition:transform .12s ease, border-color .12s ease;
+}
+.tile:hover{transform:translateY(-2px); border-color:var(--accent)}
+.tile:before{content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--border-strong)}
+.tile .sym{font-family:var(--mono); font-size:1.05rem; font-weight:700; letter-spacing:.02em}
+.tile .call{font-size:.7rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin-top:3px}
+.tile .r{font-family:var(--mono); font-size:1.45rem; font-weight:700; margin-top:7px; line-height:1}
+.tile .d{font-size:.68rem; color:var(--text-faint); font-family:var(--mono); margin-top:4px}
+.tile[data-a="sell"]:before{background:var(--pass); box-shadow:0 0 14px var(--pass)}
+.tile[data-a="sell"] .call,.tile[data-a="sell"] .r{color:var(--pass)}
+.tile[data-a="half"]:before{background:var(--warn); box-shadow:0 0 14px var(--warn)}
+.tile[data-a="half"] .call,.tile[data-a="half"] .r{color:var(--warn)}
+.tile[data-a="wait"]:before{background:var(--unknown)}
+.tile[data-a="wait"] .call{color:var(--text-dim)}
+.tile[data-a="no"]:before{background:var(--fail)}
+.tile[data-a="no"] .call{color:var(--fail)}
+.tile[data-a="no"] .r,.tile[data-a="wait"] .r{color:var(--text-dim)}
+
+.spin{display:inline-block; width:16px; height:16px; border-radius:50%; vertical-align:-3px;
+  border:2px solid color-mix(in srgb, var(--accent) 25%, transparent); border-top-color:var(--accent);
+  animation:spin .7s linear infinite}
+.spin.big{width:34px; height:34px; border-width:3px; vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){ .spin{animation-duration:2.4s} }
+.loading{display:flex; align-items:center; gap:12px; padding:26px 4px; color:var(--text-dim); font-size:.86rem}
+
 .flexrow{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
 .muted{color:var(--text-faint); font-size:.78rem}
 
@@ -330,6 +365,16 @@ footer.disc b{color:var(--text)}
 </header>
 
 <div class="wrap">
+
+  <section id="board" class="board" style="display:none">
+    <div class="bhd">
+      <h2>Today's board</h2>
+      <span class="muted" id="board-when"></span>
+      <div class="spacer"></div>
+      <span class="muted">tap one for the full read</span>
+    </div>
+    <div id="board-body"></div>
+  </section>
 
   <section id="banner" class="answer" data-a="none">
     <div>
@@ -2369,12 +2414,15 @@ function renderAnswer(ctx){
   var ceiling = d.maxScore - unreachable;
 
   if (unreachable > 0){
-    var what = lost.map(function(x){ return x[0]; }).join(", ");
+    var names = lost.map(function(x){ return x[0]; });
+    var what = names.length > 1
+      ? names.slice(0, -1).join(", ") + " and " + names[names.length - 1]
+      : names[0];
     sub = (sub ? sub + " " : "") +
-      unreachable + " of the " + d.maxScore + " points cannot be earned at all without " + what +
-      ", so the most this could score today is " + ceiling + ". " +
+      unreachable + " of the " + d.maxScore + " points cannot be earned without " + what +
+      ", so " + ceiling + " is the most this could score today." +
       (ceiling < cfgBand(ctx.cfg, "enter")
-        ? "A full-size entry is out of reach until that data exists, whatever the trade looks like."
+        ? " A full-size entry is out of reach until that data exists, however good the trade is."
         : "");
   }
 
@@ -3134,6 +3182,112 @@ function loadSavedIndex(){
     .catch(function(){ /* nothing published here; the file routes still work */ });
 }
 
+/* -------------------------- today's board -------------------------------
+   The first screen should answer "is there anything worth doing today"
+   before anyone types a symbol. Every snapshot is scored through the same
+   core and engine the detail view uses — no second implementation to drift —
+   and sorted so whatever is tradeable sits at the top. It takes a moment to
+   fetch fourteen files, so say so with something moving rather than leaving a
+   blank rectangle that looks broken. */
+function evaluateSnapshot(meta, csvText, cfg){
+  var data = DATAIO.loadOHLC(csvText);
+  var i = meta.inputs || {};
+  if (i.iv30 === null || i.iv30 === undefined || !i.dte) return null;
+  var iv = i.iv30 / 100;
+  var fc = CORE.forecastRV(data.close, cfg.harWeights);
+  var vrp = CORE.computeVRP(iv, fc.value);
+  var semi = null;
+  try { semi = CORE.semivariance(data.close, Math.min(60, data.rows - 1)); } catch (e){ /* short history */ }
+  var event = null;
+  if (i.impliedMovePct !== null && i.impliedMovePct !== undefined){
+    try { event = CORE.decomposeEvent(iv, i.dte, i.impliedMovePct / 100); }
+    catch (e){ /* inconsistent inputs; the detail view explains it */ }
+  }
+  var pc = function(x){ return (x === null || x === undefined) ? null : x / 100; };
+  var dec = ENGINE.decide({
+    cfg: cfg, vrp: vrp, dte: i.dte, event: event, semi: semi,
+    ivPut25: pc(i.ivPut25), ivCall25: pc(i.ivCall25), ivp: i.ivPercentile,
+    termStruct: (i.ivM1 && i.ivM2) ? i.ivM1 / i.ivM2 : null,
+    earningsDays: i.earningsDays, spreadPct: i.spreadPct, openInterest: i.openInterest,
+    trendAligned: null
+  });
+  return { sym: meta.symbol, dec: dec, iv: iv, rv: fc.value };
+}
+
+var BOARD_RANK = { sell: 0, half: 1, wait: 2, no: 3 };
+function boardMode(dec){
+  if (dec.verdict === ENGINE.Verdict.ENTER) return "sell";
+  if (dec.verdict === ENGINE.Verdict.HALF_SIZE) return "half";
+  if (dec.verdict === ENGINE.Verdict.WAIT) return "wait";
+  return "no";
+}
+function boardCall(dec, mode){
+  if (mode === "sell" || mode === "half"){
+    return (dec.side === ENGINE.Side.SHORT_PUT ? "Sell puts" : "Sell calls") +
+           (mode === "half" ? " · half" : "");
+  }
+  if (mode === "wait") return "Not yet";
+  var f = dec.failedGates && dec.failedGates.length ? dec.failedGates[0].code : null;
+  return { G1: "IV too low", G2: "Earnings", G3: "Illiquid",
+           G4: "Backwardation", G5: "Vol too low", G6: "No edge either side" }[f] || "No";
+}
+
+function buildBoard(){
+  var cfg = state.cfg;
+  $("board").style.display = "";
+  $("board-body").innerHTML = '<div class="loading"><span class="spin big"></span>' +
+    '<span>Scoring the board… <span id="board-count"></span></span></div>';
+
+  fetch("data/index.json", { cache: "no-store" })
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(idx){
+      if (!idx || !idx.symbols) { $("board").style.display = "none"; return; }
+      var syms = Object.keys(idx.symbols).sort();
+      var when = idx.generatedAt ? new Date(idx.generatedAt) : null;
+      $("board-when").textContent = when && !isNaN(when.getTime())
+        ? "last close, fetched " + when.toLocaleString() : "";
+      var done = 0;
+      $("board-count").textContent = "0 of " + syms.length;
+
+      return Promise.all(syms.map(function(sym){
+        return Promise.all([
+          fetch("data/" + encodeURIComponent(sym) + ".json", { cache: "no-store" }).then(function(r){ return r.json(); }),
+          fetch("data/" + encodeURIComponent(sym) + "_ohlc.csv", { cache: "no-store" }).then(function(r){ return r.text(); })
+        ]).then(function(res){
+          var out = null;
+          try { out = evaluateSnapshot(res[0], res[1], cfg); } catch (e){ out = null; }
+          done++;
+          var c = $("board-count"); if (c) c.textContent = done + " of " + syms.length;
+          return out;
+        }).catch(function(){
+          done++;
+          var c = $("board-count"); if (c) c.textContent = done + " of " + syms.length;
+          return null;
+        });
+      })).then(renderBoard);
+    })
+    .catch(function(){ $("board").style.display = "none"; });
+}
+
+function renderBoard(rows){
+  rows = rows.filter(Boolean);
+  if (!rows.length){ $("board").style.display = "none"; return; }
+  rows.forEach(function(r){ r.mode = boardMode(r.dec); });
+  rows.sort(function(a, b){
+    var d = BOARD_RANK[a.mode] - BOARD_RANK[b.mode];
+    return d !== 0 ? d : b.dec.effectiveRatio - a.dec.effectiveRatio;
+  });
+  $("board-body").innerHTML = '<div class="bgrid">' + rows.map(function(r){
+    return '<button type="button" class="tile" data-a="' + r.mode + '" data-board="' + V.esc(r.sym) + '">' +
+      '<div class="sym">' + V.esc(r.sym) + "</div>" +
+      '<div class="call">' + V.esc(boardCall(r.dec, r.mode)) + "</div>" +
+      '<div class="r">' + V.num(r.dec.effectiveRatio, 2) + "×</div>" +
+      '<div class="d">IV ' + V.pct(r.iv, 1) + " · RV " + V.pct(r.rv, 1) +
+        (r.dec.effectiveRatioSource === "clean" ? " · clean" : "") + "</div>" +
+      "</button>";
+  }).join("") + "</div>";
+}
+
 function loadSaved(sym){
   $("calc-status").innerHTML = "Opening <b>" + V.esc(sym) + "</b>…";
   Promise.all([
@@ -3224,6 +3378,10 @@ function wire(){
   });
 
   $("btn-calc").addEventListener("click", calculate);
+  $("board-body").addEventListener("click", function(ev){
+    var tile = ev.target.closest("button[data-board]");
+    if (tile) loadSaved(tile.getAttribute("data-board"));
+  });
   $("saved-list").addEventListener("click", function(ev){
     var btn = ev.target.closest("button[data-saved]");
     if (btn) loadSaved(btn.getAttribute("data-saved"));
@@ -3285,6 +3443,7 @@ function wire(){
   renderConfigEditor();
   probeHelper();
   loadSavedIndex();
+  buildBoard();
   analyze();
 }
 /* ===========================================================================
