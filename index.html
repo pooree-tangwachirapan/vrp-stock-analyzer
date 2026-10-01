@@ -1,0 +1,3311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VRP Stock Analyzer</title>
+<meta name="description" content="Variance Risk Premium analyzer for single-stock option selling. Single file, no build step, no network.">
+<style>
+:root{
+  --bg:#f6f7f9; --surface:#fff; --surface-2:#f0f2f5; --surface-3:#e7eaef;
+  --border:#d8dde4; --border-strong:#b9c1cb;
+  --text:#14171b; --text-dim:#59616d; --text-faint:#858e9a;
+  --accent:#2a63cc; --accent-soft:#e8eefb;
+  --pass:#17784a; --pass-bg:#e4f4ea;
+  --fail:#b81f33; --fail-bg:#fcebed;
+  --warn:#8a5a00; --warn-bg:#fdf3dd;
+  --unknown:#5d6672; --unknown-bg:#e9edf1;
+  --mono:ui-monospace,"SFMono-Regular","Cascadia Mono",Consolas,"Liberation Mono",monospace;
+  --radius:10px;
+  --shadow:0 1px 2px rgba(16,20,26,.06),0 2px 8px rgba(16,20,26,.05);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1216; --surface:#171b21; --surface-2:#1e232b; --surface-3:#262d36;
+    --border:#2c333d; --border-strong:#3d4653;
+    --text:#e6e9ed; --text-dim:#a3acb9; --text-faint:#7b8694;
+    --accent:#6b9bff; --accent-soft:#1b2740;
+    --pass:#4fc98a; --pass-bg:#11291f;
+    --fail:#ff7b8c; --fail-bg:#2c161b;
+    --warn:#e8b857; --warn-bg:#2b2213;
+    --unknown:#9aa4b1; --unknown-bg:#20262e;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 2px 8px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1216; --surface:#171b21; --surface-2:#1e232b; --surface-3:#262d36;
+  --border:#2c333d; --border-strong:#3d4653;
+  --text:#e6e9ed; --text-dim:#a3acb9; --text-faint:#7b8694;
+  --accent:#6b9bff; --accent-soft:#1b2740;
+  --pass:#4fc98a; --pass-bg:#11291f;
+  --fail:#ff7b8c; --fail-bg:#2c161b;
+  --warn:#e8b857; --warn-bg:#2b2213;
+  --unknown:#9aa4b1; --unknown-bg:#20262e;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 2px 8px rgba(0,0,0,.3);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+h1,h2,h3{margin:0; font-weight:650; letter-spacing:-.01em}
+h1{font-size:1.25rem}
+h2{font-size:.95rem}
+h3{font-size:.82rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:.06em}
+a{color:var(--accent)}
+code,.mono{font-family:var(--mono); font-variant-numeric:tabular-nums}
+
+.wrap{max-width:1320px; margin:0 auto; padding:0 16px 56px}
+
+header.top{
+  position:sticky; top:0; z-index:20; background:var(--surface);
+  border-bottom:1px solid var(--border);
+}
+header.top .wrap{display:flex; align-items:center; gap:12px; padding-top:12px; padding-bottom:12px}
+header.top .sub{color:var(--text-faint); font-size:.78rem; margin-top:2px}
+.spacer{flex:1}
+
+button{
+  font:inherit; font-size:.84rem; color:var(--text); background:var(--surface);
+  border:1px solid var(--border-strong); border-radius:8px; padding:7px 12px;
+  cursor:pointer;
+}
+button:hover{background:var(--surface-2)}
+button.primary{background:var(--accent); border-color:var(--accent); color:#fff}
+button.primary:hover{filter:brightness(1.08)}
+button.sm{padding:4px 9px; font-size:.78rem}
+.seg{display:inline-flex; border:1px solid var(--border-strong); border-radius:8px; overflow:hidden}
+.seg button{border:0; border-radius:0; padding:5px 10px; font-size:.76rem}
+.seg button[aria-pressed="true"]{background:var(--accent-soft); color:var(--accent); font-weight:600}
+
+.cols{display:grid; grid-template-columns:330px minmax(0,1fr); gap:18px; align-items:start; margin-top:18px}
+/* minmax(0,...) on both tracks, plus min-width:0 on the children, so a wide
+   table or chart cannot push the grid past the viewport on a phone. */
+.cols>aside,.cols>#results{min-width:0}
+@media (max-width:980px){ .cols{grid-template-columns:minmax(0,1fr)} }
+
+.card{
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius); box-shadow:var(--shadow); margin-bottom:14px;
+}
+.card>.hd{
+  display:flex; align-items:center; gap:8px;
+  padding:11px 14px; border-bottom:1px solid var(--border);
+}
+.card>.bd{padding:14px}
+.card.flat{box-shadow:none}
+
+aside .card>.bd{padding:12px}
+.fieldset{border:0; margin:0 0 4px; padding:0}
+.fieldset+.fieldset{margin-top:14px; padding-top:12px; border-top:1px dashed var(--border)}
+.fieldset legend{
+  padding:0; font-size:.72rem; font-weight:650; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--text-dim); margin-bottom:8px;
+}
+.row{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+.row.one{grid-template-columns:1fr}
+.f{display:flex; flex-direction:column; gap:3px; margin-bottom:8px}
+.f label{font-size:.74rem; color:var(--text-dim); display:flex; align-items:center; gap:4px}
+.f input,.f select,.f textarea{
+  font:inherit; font-size:.85rem; font-family:var(--mono);
+  color:var(--text); background:var(--surface-2);
+  border:1px solid var(--border); border-radius:7px; padding:6px 8px; width:100%;
+}
+.f input:focus,.f select:focus,.f textarea:focus{outline:2px solid var(--accent); outline-offset:-1px}
+.f select{font-family:inherit}
+.f .hint{font-size:.68rem; color:var(--text-faint)}
+.chk{display:flex; align-items:flex-start; gap:7px; font-size:.78rem; color:var(--text-dim); margin-bottom:7px}
+.chk input{margin:2px 0 0; flex:none}
+
+.banner{
+  border-radius:var(--radius); padding:14px 16px; margin-top:16px;
+  border:1px solid var(--border); background:var(--surface); box-shadow:var(--shadow);
+  display:flex; flex-wrap:wrap; align-items:center; gap:10px 16px;
+}
+.banner .verdict{font-size:1.5rem; font-weight:700; letter-spacing:-.02em}
+.banner .why{color:var(--text-dim); font-size:.82rem; flex-basis:100%}
+.banner[data-v="ENTER"]{background:var(--pass-bg); border-color:var(--pass)}
+.banner[data-v="ENTER"] .verdict{color:var(--pass)}
+.banner[data-v="HALF SIZE"]{background:var(--warn-bg); border-color:var(--warn)}
+.banner[data-v="HALF SIZE"] .verdict{color:var(--warn)}
+.banner[data-v="WAIT"]{background:var(--unknown-bg); border-color:var(--border-strong)}
+.banner[data-v="WAIT"] .verdict{color:var(--text-dim)}
+.banner[data-v="DO NOT ENTER"]{background:var(--fail-bg); border-color:var(--fail)}
+.banner[data-v="DO NOT ENTER"] .verdict{color:var(--fail)}
+.banner[data-v="INSUFFICIENT DATA"]{background:var(--surface-2)}
+.banner[data-v="INSUFFICIENT DATA"] .verdict{color:var(--text-dim); font-size:1.15rem}
+
+.pill{
+  display:inline-flex; align-items:center; gap:5px; font-size:.7rem; font-weight:600;
+  letter-spacing:.04em; text-transform:uppercase;
+  padding:3px 8px; border-radius:999px; border:1px solid var(--border-strong);
+  background:var(--surface-2); color:var(--text-dim); white-space:nowrap;
+}
+.pill.pass{background:var(--pass-bg); color:var(--pass); border-color:var(--pass)}
+.pill.fail{background:var(--fail-bg); color:var(--fail); border-color:var(--fail)}
+.pill.warn{background:var(--warn-bg); color:var(--warn); border-color:var(--warn)}
+.pill.unknown{background:var(--unknown-bg); color:var(--unknown); border-color:var(--border-strong); border-style:dashed}
+.pill.accent{background:var(--accent-soft); color:var(--accent); border-color:var(--accent)}
+
+.metrics{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px}
+.metric{background:var(--surface-2); border:1px solid var(--border); border-radius:9px; padding:10px 12px}
+.metric .k{font-size:.7rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; display:flex; align-items:center; gap:4px}
+.metric .v{font-family:var(--mono); font-size:1.28rem; font-weight:650; margin-top:3px; letter-spacing:-.02em}
+.metric .n{font-size:.7rem; color:var(--text-faint); margin-top:2px}
+.metric.head{background:var(--accent-soft); border-color:var(--accent)}
+.metric.head .v{color:var(--accent)}
+.metric .v.pos{color:var(--pass)} .metric .v.neg{color:var(--fail)}
+
+table{width:100%; border-collapse:collapse; font-size:.83rem}
+th,td{padding:7px 10px; text-align:right; border-bottom:1px solid var(--border)}
+th:first-child,td:first-child{text-align:left}
+thead th{font-size:.7rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-dim); font-weight:650}
+tbody tr:last-child td{border-bottom:0}
+td.num{font-family:var(--mono); font-variant-numeric:tabular-nums}
+tr.hl td{background:var(--accent-soft)}
+
+.na{color:var(--text-faint); font-style:italic; font-family:inherit; font-size:.86em}
+.heur{color:var(--warn); cursor:help; font-weight:700}
+.msg{border-radius:8px; padding:9px 12px; font-size:.82rem; margin-bottom:8px; border:1px solid}
+.msg:last-child{margin-bottom:0}
+.msg.warn{background:var(--warn-bg); border-color:var(--warn); color:var(--text)}
+.msg.err{background:var(--fail-bg); border-color:var(--fail); color:var(--text)}
+.msg.note{background:var(--surface-2); border-color:var(--border); color:var(--text-dim)}
+.msg.loud{border-width:2px; font-size:.88rem; font-weight:500}
+.msg b{font-weight:700}
+
+.gates{display:flex; flex-direction:column; gap:6px}
+.gate{display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center;
+  padding:8px 10px; border-radius:8px; background:var(--surface-2); border:1px solid var(--border)}
+.gate .code{font-family:var(--mono); font-weight:700; font-size:.8rem}
+.gate .nm{font-size:.84rem; font-weight:550}
+.gate .dt{font-size:.74rem; color:var(--text-dim); grid-column:2; margin-top:-4px}
+.gate[data-r="FAIL"]{background:var(--fail-bg); border-color:var(--fail)}
+.gate[data-r="UNKNOWN"]{background:var(--unknown-bg); border-style:dashed; border-color:var(--border-strong)}
+
+.scorelist{list-style:none; margin:0; padding:0; font-family:var(--mono); font-size:.8rem}
+.scorelist li{display:flex; gap:10px; padding:4px 0; border-bottom:1px dotted var(--border)}
+.scorelist li:last-child{border-bottom:0}
+.scorelist .p{width:2.2em; font-weight:700; flex:none; text-align:right}
+.scorelist .p.z{color:var(--text-faint)}
+.scorelist .p.g{color:var(--pass)}
+
+.legs{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+@media (max-width:620px){ .legs{grid-template-columns:1fr} }
+.leg{border:1px solid var(--border); border-radius:9px; padding:11px 12px; background:var(--surface-2)}
+.leg.sel{border-color:var(--accent); border-width:2px; background:var(--accent-soft); padding:10px 11px}
+.leg .t{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px}
+.leg .t strong{font-size:.86rem}
+.leg dl{margin:0; display:grid; grid-template-columns:1fr auto; gap:3px 10px; font-size:.78rem}
+.leg dt{color:var(--text-dim)}
+.leg dd{margin:0; font-family:var(--mono); text-align:right}
+
+svg.chart{display:block; width:100%; height:auto; overflow:visible}
+svg.chart text{font-family:system-ui,sans-serif; fill:var(--text-dim)}
+svg.chart text.val{font-family:var(--mono); fill:var(--text)}
+svg.chart .grid{stroke:var(--border); stroke-width:1}
+svg.chart .axis{stroke:var(--border-strong); stroke-width:1}
+
+details.panel{
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  box-shadow:var(--shadow); margin-top:14px;
+}
+details.panel>summary{
+  padding:11px 14px; cursor:pointer; font-weight:600; font-size:.9rem;
+  display:flex; align-items:center; gap:8px; list-style:none;
+}
+details.panel>summary::-webkit-details-marker{display:none}
+details.panel>summary::before{content:"\25B8"; color:var(--text-faint); transition:transform .15s}
+details.panel[open]>summary::before{transform:rotate(90deg)}
+details.panel>.bd{padding:0 14px 14px; border-top:1px solid var(--border); padding-top:14px}
+
+.cfggrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:10px}
+.cfgf{display:flex; flex-direction:column; gap:3px}
+.cfgf label{font-size:.74rem; color:var(--text-dim); display:flex; align-items:center; gap:5px}
+.cfgf input{font-family:var(--mono); font-size:.82rem; background:var(--surface-2); color:var(--text);
+  border:1px solid var(--border); border-radius:7px; padding:5px 7px}
+.prov{font-size:.6rem; padding:1px 5px; border-radius:999px; border:1px solid var(--border-strong);
+  color:var(--text-faint); text-transform:uppercase; letter-spacing:.04em; cursor:help}
+.prov[data-p="heuristic"]{color:var(--warn); border-color:var(--warn)}
+.prov[data-p="published"],.prov[data-p="convention"]{color:var(--pass); border-color:var(--pass)}
+
+.tests{font-family:var(--mono); font-size:.78rem}
+.tests .t{display:grid; grid-template-columns:auto 1fr; gap:8px; padding:3px 0; align-items:baseline}
+.tests .t.f{color:var(--fail)}
+.tests .mk{font-weight:700}
+.tests .t.p .mk{color:var(--pass)}
+.tests .err{grid-column:2; color:var(--fail); font-size:.74rem; white-space:pre-wrap}
+.tsum{font-weight:700; margin-bottom:8px; font-size:.86rem; font-family:var(--mono)}
+
+footer.disc{margin-top:22px; padding:14px 16px; border-radius:var(--radius);
+  background:var(--surface-2); border:1px solid var(--border); color:var(--text-dim); font-size:.8rem}
+footer.disc b{color:var(--text)}
+
+.flexrow{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+.muted{color:var(--text-faint); font-size:.78rem}
+
+@media print{
+  :root{--shadow:none}
+  header.top{position:static}
+  body{background:#fff}
+  .noprint,aside,details.panel,header.top .seg,header.top button{display:none !important}
+  .cols{grid-template-columns:1fr}
+  .card{break-inside:avoid; box-shadow:none; border-color:#bbb}
+  .banner{break-inside:avoid}
+  a[href]:after{content:""}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div>
+      <h1>VRP Stock Analyzer</h1>
+      <div class="sub">Variance Risk Premium for single-stock option selling &middot; offline, no network calls</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="seg noprint" id="theme-seg">
+      <button type="button" data-theme-set="auto" aria-pressed="true">Auto</button>
+      <button type="button" data-theme-set="light" aria-pressed="false">Light</button>
+      <button type="button" data-theme-set="dark" aria-pressed="false">Dark</button>
+    </div>
+    <button type="button" class="noprint" id="btn-json">Copy JSON</button>
+    <button type="button" class="noprint" id="btn-print">Print / PDF</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section id="banner" class="banner" data-v="INSUFFICIENT DATA">
+    <div class="verdict">Waiting for input</div>
+    <div class="why">Load a price history and enter at least IV30 to get a verdict.</div>
+  </section>
+
+  <div class="cols">
+
+    <aside class="noprint">
+      <div class="card">
+        <div class="hd"><h2>Price history</h2></div>
+        <div class="bd">
+          <div class="f">
+            <label for="csv-file">CSV file &mdash; Date, Open, High, Low, Close</label>
+            <input type="file" id="csv-file" accept=".csv,.txt,text/csv,text/plain">
+            <span class="hint">Read locally with FileReader. Nothing is uploaded.</span>
+          </div>
+          <div class="f">
+            <label for="csv-paste">&hellip; or paste rows</label>
+            <textarea id="csv-paste" rows="4" placeholder="Date,Open,High,Low,Close&#10;2025-01-02,186.78,186.81,183.43,185.78"></textarea>
+          </div>
+          <div class="flexrow">
+            <button type="button" class="sm" id="btn-demo">Load synthetic demo</button>
+            <button type="button" class="sm" id="btn-clear-data">Clear</button>
+          </div>
+          <div id="data-status" class="muted" style="margin-top:9px">No price data loaded.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="hd"><h2>Option inputs</h2></div>
+        <div class="bd">
+          <fieldset class="fieldset">
+            <legend>Implied vol (%)</legend>
+            <div class="row">
+              <div class="f"><label for="in-iv30">IV30 <span class="req">*</span></label><input type="number" id="in-iv30" step="0.1" placeholder="38"></div>
+              <div class="f"><label for="in-ivp">IV percentile</label><input type="number" id="in-ivp" step="1" placeholder="62"></div>
+            </div>
+            <div class="row">
+              <div class="f"><label for="in-ivput25">IV &Delta;25 put</label><input type="number" id="in-ivput25" step="0.1" placeholder="41"></div>
+              <div class="f"><label for="in-ivcall25">IV &Delta;25 call</label><input type="number" id="in-ivcall25" step="0.1" placeholder="36"></div>
+            </div>
+            <div class="row">
+              <div class="f"><label for="in-ivm1">IV M1</label><input type="number" id="in-ivm1" step="0.1" placeholder="38"></div>
+              <div class="f"><label for="in-ivm2">IV M2</label><input type="number" id="in-ivm2" step="0.1" placeholder="39"></div>
+            </div>
+            <div class="row">
+              <div class="f"><label for="in-ivmin">IV 1Y low</label><input type="number" id="in-ivmin" step="0.1" placeholder="22"></div>
+              <div class="f"><label for="in-ivmax">IV 1Y high</label><input type="number" id="in-ivmax" step="0.1" placeholder="68"></div>
+            </div>
+          </fieldset>
+
+          <fieldset class="fieldset">
+            <legend>Contract &amp; liquidity</legend>
+            <div class="row">
+              <div class="f"><label for="in-spot">Spot</label><input type="number" id="in-spot" step="0.01" placeholder="180"></div>
+              <div class="f"><label for="in-dte">DTE <span class="req">*</span></label><input type="number" id="in-dte" step="1" placeholder="38"></div>
+            </div>
+            <div class="row">
+              <div class="f"><label for="in-spread">Bid-ask spread (%)</label><input type="number" id="in-spread" step="0.1" placeholder="3.5"></div>
+              <div class="f"><label for="in-oi">Open interest</label><input type="number" id="in-oi" step="1" placeholder="1800"></div>
+            </div>
+            <div class="row">
+              <div class="f"><label for="in-delta">Short leg &Delta;</label><input type="number" id="in-delta" step="0.01" placeholder="0.20"></div>
+              <div class="f"><label for="in-side">Side</label>
+                <select id="in-side">
+                  <option value="">Auto (from semivariance)</option>
+                  <option value="SHORT_PUT">Force short put</option>
+                  <option value="SHORT_CALL">Force short call</option>
+                </select>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset class="fieldset">
+            <legend>Event</legend>
+            <div class="row">
+              <div class="f"><label for="in-edays">Days to earnings</label><input type="number" id="in-edays" step="1" placeholder="70"></div>
+              <div class="f"><label for="in-imove">Implied move (%)</label><input type="number" id="in-imove" step="0.1" placeholder="6"></div>
+            </div>
+            <div class="f">
+              <label for="in-hmoves">Past earnings moves (%), comma separated</label>
+              <input type="text" id="in-hmoves" placeholder="5.1, 7.4, 3.9, 6.2, 4.8, 9.1, 5.5, 6.0">
+            </div>
+            <div class="f">
+              <label for="in-straddle">ATM straddle price</label>
+              <input type="number" id="in-straddle" step="0.01" placeholder="11.40">
+              <span class="hint">Converted to an expected move with the straddle factor in Calibration.</span>
+            </div>
+          </fieldset>
+
+          <fieldset class="fieldset">
+            <legend>Context</legend>
+            <div class="f">
+              <label for="in-trend">Trend vs short side</label>
+              <select id="in-trend">
+                <option value="">Unknown</option>
+                <option value="yes">Aligned</option>
+                <option value="no">Against</option>
+              </select>
+            </div>
+            <label class="chk"><input type="checkbox" id="in-event-intent"><span>I am deliberately trading the event (skips gate G2)</span></label>
+            <label class="chk"><input type="checkbox" id="in-ts-explained"><span>Backwardation has a known cause (skips gate G4)</span></label>
+            <label class="chk"><input type="checkbox" id="in-cash100"><span>I can cover 100 shares in cash (allows cash-secured put)</span></label>
+          </fieldset>
+
+          <fieldset class="fieldset">
+            <legend>Sizing</legend>
+            <div class="row">
+              <div class="f"><label for="in-portfolio">Portfolio</label><input type="number" id="in-portfolio" step="100" placeholder="50000"></div>
+              <div class="f"><label for="in-width">Spread width</label><input type="number" id="in-width" step="0.5" placeholder="5"></div>
+            </div>
+            <div class="f"><label for="in-credit">Credit received</label><input type="number" id="in-credit" step="0.01" placeholder="1.30"></div>
+          </fieldset>
+        </div>
+      </div>
+    </aside>
+
+    <div id="results">
+      <div id="messages"></div>
+
+      <div class="card" id="card-core">
+        <div class="hd"><h2>VRP core</h2><div class="spacer"></div><span id="core-src" class="pill"></span></div>
+        <div class="bd">
+          <div class="metrics" id="core-metrics"></div>
+          <div id="core-note" class="muted" style="margin-top:10px"></div>
+        </div>
+      </div>
+
+      <div class="card" id="card-est">
+        <div class="hd"><h2>Realized vol estimators</h2><div class="spacer"></div><span id="gap-pill"></span></div>
+        <div class="bd">
+          <div id="est-chart"></div>
+          <table id="est-table" style="margin-top:10px"></table>
+        </div>
+      </div>
+
+      <div class="card" id="card-side">
+        <div class="hd"><h2>Side selection</h2><div class="spacer"></div><span id="side-pill"></span></div>
+        <div class="bd">
+          <div class="legs" id="legs"></div>
+          <div id="semi-chart" style="margin-top:12px"></div>
+          <div id="skew-note" class="muted" style="margin-top:8px"></div>
+        </div>
+      </div>
+
+      <div class="card" id="card-event">
+        <div class="hd"><h2>Event decomposition</h2></div>
+        <div class="bd" id="event-body"></div>
+      </div>
+
+      <div class="card" id="card-gates">
+        <div class="hd"><h2>Hard gates</h2><div class="spacer"></div><span class="muted">a failed gate beats any score</span></div>
+        <div class="bd"><div class="gates" id="gates"></div></div>
+      </div>
+
+      <div class="card" id="card-score">
+        <div class="hd"><h2>Score</h2><div class="spacer"></div><span id="score-pill" class="pill"></span></div>
+        <div class="bd">
+          <div id="score-chart"></div>
+          <ul class="scorelist" id="score-list" style="margin-top:10px"></ul>
+        </div>
+      </div>
+
+      <div class="card" id="card-plan">
+        <div class="hd"><h2>Trade plan</h2></div>
+        <div class="bd" id="plan-body"></div>
+      </div>
+
+      <div class="card" id="card-conf">
+        <div class="hd"><h2>Data &amp; confidence</h2><div class="spacer"></div><span id="conf-pill" class="pill"></span></div>
+        <div class="bd" id="conf-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <details class="panel noprint" id="panel-config">
+    <summary>Calibration &mdash; every tunable number lives here</summary>
+    <div class="bd">
+      <div class="flexrow" style="margin-bottom:12px">
+        <button type="button" class="sm" id="btn-cfg-reset">Reset to defaults</button>
+        <span class="muted">The deterministic core holds no thresholds. Changing a value here re-runs the decision immediately.</span>
+      </div>
+      <div id="cfg-issues"></div>
+      <div id="cfg-groups"></div>
+    </div>
+  </details>
+
+  <details class="panel noprint" id="panel-tests">
+    <summary>Self-tests &mdash; ported from the Python reference suite</summary>
+    <div class="bd">
+      <div class="flexrow" style="margin-bottom:12px">
+        <button type="button" class="primary sm" id="btn-tests">Run self-tests</button>
+        <span class="muted">Runs entirely in this page. Includes a cross-language fixture checked against the Python implementation.</span>
+      </div>
+      <div id="test-out" class="tests"></div>
+    </div>
+  </details>
+
+  <footer class="disc">
+    <b>Disclaimer.</b> <span id="disclaimer-text"></span>
+  </footer>
+</div>
+<script>
+"use strict";
+
+/* ===========================================================================
+   CORE -- DETERMINISTIC. Port of vrp_app/core/{estimators,vrp,position}.py
+   ---------------------------------------------------------------------------
+   Rules carried over from the Python reference (spec section 1):
+     - no calibration constants here (no threshold, weight or scale we chose)
+     - the only literals allowed are constants from published closed forms,
+       each with its source in a comment
+     - every function is pure: same input -> same output, no state, no I/O
+     - nothing that is missing is ever defaulted or clamped; it throws instead
+
+   Constants that are allowed in this block, and why:
+     A = 252           trading days per year (market convention)
+     4*ln(2)           Parkinson (1980) normalizing constant
+     0.5, (2ln2 - 1)   Garman-Klass (1980) closed-form coefficients
+     0.34, 1.34        Yang-Zhang (2000) k constant, from the paper
+     365               calendar days per year, for time to expiry
+   =========================================================================== */
+function buildCore(){
+
+  var A = 252;            // trading days per year
+  var IDENTITY_TOL = 1e-9; // floating point slack for the semivariance identity
+
+  function CoreError(kind, message){
+    var e = new Error(message);
+    e.name = "CoreError";
+    e.kind = kind;
+    return e;
+  }
+  function estErr(m){ throw CoreError("estimator", m); }
+  function vrpErr(m){ throw CoreError("vrp", m); }
+  function posErr(m){ throw CoreError("position", m); }
+
+  /* ---- tiny numeric helpers (replacing numpy; no judgement, just arithmetic) ---- */
+  function asArray(x, label){
+    if (!x || typeof x.length !== "number") estErr(label + " must be an array");
+    var out = new Array(x.length);
+    for (var i = 0; i < x.length; i++) out[i] = Number(x[i]);
+    return out;
+  }
+  function total(a){ var s = 0; for (var i = 0; i < a.length; i++) s += a[i]; return s; }
+  function avg(a){ return total(a) / a.length; }
+  function middle(a){
+    var s = a.slice().sort(function(x, y){ return x - y; });
+    var n = s.length, h = n >> 1;
+    return (n % 2) ? s[h] : (s[h - 1] + s[h]) / 2;
+  }
+  function tail(arr, window){
+    if (!isFinite(window) || Math.floor(window) !== window || window < 2)
+      estErr("window must be an integer >= 2");
+    if (arr.length < window)
+      estErr("not enough data: need " + window + " values, have " + arr.length);
+    return arr.slice(arr.length - window);
+  }
+
+  /* ---- log returns ---- */
+  function logReturns(close){
+    var c = asArray(close, "close");
+    if (c.length < 2) estErr("need at least 2 closing prices to compute a log return");
+    for (var i = 0; i < c.length; i++){
+      if (!isFinite(c[i]) || c[i] <= 0) estErr("close contains a value <= 0, NaN or Infinity");
+    }
+    var r = new Array(c.length - 1);
+    for (var j = 1; j < c.length; j++) r[j - 1] = Math.log(c[j] / c[j - 1]);
+    return r;
+  }
+
+  /* =========================== 2.1 RV estimators =========================== */
+
+  /* RV_cc = sqrt( (A/n) * sum(r^2) )
+     Deliberately not demeaned: over short windows drift is far smaller than
+     noise and demeaning adds estimation error. This is the variance a daily
+     delta hedge actually collects, so it compares like for like against IV. */
+  function rvCloseToClose(close, window){
+    var r = tail(logReturns(close), window);
+    var s = 0;
+    for (var i = 0; i < r.length; i++) s += r[i] * r[i];
+    return Math.sqrt(A / window * s);
+  }
+
+  /* Parkinson (1980): sqrt( A / (4*n*ln2) * sum( ln(H/L)^2 ) )
+     Structurally blind to overnight gaps, so it reads low on gappy names. */
+  function rvParkinson(high, low, window){
+    var h = tail(asArray(high, "high"), window);
+    var lo = tail(asArray(low, "low"), window);
+    var s = 0;
+    for (var i = 0; i < window; i++){
+      if (h[i] <= 0 || lo[i] <= 0) estErr("High/Low contains a value <= 0");
+      if (h[i] < lo[i]) estErr("found a row where High < Low");
+      var x = Math.log(h[i] / lo[i]);
+      s += x * x;
+    }
+    var denom = 4.0 * window * Math.log(2.0);  // Parkinson normalizing constant
+    return Math.sqrt(A / denom * s);
+  }
+
+  /* Garman-Klass (1980): v = 0.5*ln(H/L)^2 - (2ln2 - 1)*ln(C/O)^2
+     0.5 and (2ln2 - 1) are coefficients of the published closed form.
+     Blind to overnight moves in the same way Parkinson is. */
+  function rvGarmanKlass(open_, high, low, close, window){
+    var o = tail(asArray(open_, "open"), window);
+    var h = tail(asArray(high, "high"), window);
+    var lo = tail(asArray(low, "low"), window);
+    var c = tail(asArray(close, "close"), window);
+    var coCoeff = 2.0 * Math.log(2.0) - 1.0;   // Garman-Klass coefficient
+    var s = 0;
+    for (var i = 0; i < window; i++){
+      if (o[i] <= 0 || h[i] <= 0 || lo[i] <= 0 || c[i] <= 0) estErr("OHLC contains a value <= 0");
+      var hl = Math.log(h[i] / lo[i]);
+      var co = Math.log(c[i] / o[i]);
+      s += 0.5 * hl * hl - coCoeff * co * co;
+    }
+    if (s <= 0)
+      estErr("Garman-Klass variance <= 0 (malformed data: the range is narrower than the open-to-close move)");
+    return Math.sqrt(A / window * s);
+  }
+
+  /* Yang-Zhang (2000): drift independent, and it sees overnight gaps.
+       o = ln(O_i / C_{i-1})   c = ln(C_i / O_i)   u = ln(H_i / O_i)   d = ln(L_i / O_i)
+       k = 0.34 / (1.34 + (n+1)/(n-1))              <- from the paper
+       RV = sqrt( A * (var_o + k*var_c + (1-k)*var_rs) )
+     Needs window+1 rows because o_i refers to the previous close. */
+  function rvYangZhang(open_, high, low, close, window){
+    var oAll = asArray(open_, "open"), hAll = asArray(high, "high");
+    var lAll = asArray(low, "low"), cAll = asArray(close, "close");
+    if (!(oAll.length === hAll.length && hAll.length === lAll.length && lAll.length === cAll.length))
+      estErr("OHLC arrays have different lengths");
+    var need = window + 1;
+    if (oAll.length < need)
+      estErr("Yang-Zhang needs " + need + " rows (window+1), got " + oAll.length);
+    var n = window;
+    if (n < 3) estErr("Yang-Zhang needs window >= 3");
+
+    var start = oAll.length - window;
+    var ov = new Array(n), oc = new Array(n), u = new Array(n), d = new Array(n);
+    for (var i = 0; i < n; i++){
+      var o = oAll[start + i], h = hAll[start + i], lo = lAll[start + i], c = cAll[start + i];
+      var cPrev = cAll[start + i - 1];
+      if (o <= 0 || h <= 0 || lo <= 0 || c <= 0 || cPrev <= 0) estErr("OHLC contains a value <= 0");
+      ov[i] = Math.log(o / cPrev);
+      oc[i] = Math.log(c / o);
+      u[i] = Math.log(h / o);
+      d[i] = Math.log(lo / o);
+    }
+    var ovBar = avg(ov), ocBar = avg(oc);
+    var so = 0, sc = 0, srs = 0;
+    for (var j = 0; j < n; j++){
+      so += (ov[j] - ovBar) * (ov[j] - ovBar);
+      sc += (oc[j] - ocBar) * (oc[j] - ocBar);
+      srs += u[j] * (u[j] - oc[j]) + d[j] * (d[j] - oc[j]);   // Rogers-Satchell
+    }
+    var var_o = so / (n - 1), var_c = sc / (n - 1), var_rs = srs / n;
+    var k = 0.34 / (1.34 + (n + 1) / (n - 1));                // Yang-Zhang k
+    var v = var_o + k * var_c + (1.0 - k) * var_rs;
+    if (v <= 0) estErr("Yang-Zhang variance <= 0 (malformed data)");
+    return Math.sqrt(A * v);
+  }
+
+  /* =========================== 2.2 Semivariance ============================ */
+
+  /* RV_down^2 = (A/n)*sum(r^2 * 1{r<0}),  RV_up^2 = (A/n)*sum(r^2 * 1{r>0})
+
+     HARD ASSERTION: RV_down^2 + RV_up^2 == RV_cc^2 within floating point.
+     If it fails we throw rather than hand a wrong number to someone who is
+     about to size a trade with it. r == 0 joins neither side and cannot break
+     the identity, because 0 squared is 0. */
+  function semivariance(close, window){
+    var r = tail(logReturns(close), window);
+    var scale = A / window;
+    var neg = [], pos = [], nZero = 0;
+    for (var i = 0; i < r.length; i++){
+      if (r[i] < 0) neg.push(r[i] * r[i]);
+      else if (r[i] > 0) pos.push(r[i] * r[i]);
+      else nZero++;
+    }
+    var all = new Array(r.length);
+    for (var j = 0; j < r.length; j++) all[j] = r[j] * r[j];
+
+    var varDown = scale * total(neg);
+    var varUp = scale * total(pos);
+    var varTotal = scale * total(all);
+
+    var residual = Math.abs(varDown + varUp - varTotal);
+    var rel = varTotal > 0 ? residual / varTotal : residual;
+    if (rel > IDENTITY_TOL)
+      estErr("Semivariance identity failed: down^2+up^2=" + (varDown + varUp).toExponential(12) +
+             " vs total^2=" + varTotal.toExponential(12) + " (rel=" + rel.toExponential(3) +
+             ") -- the calculation is wrong");
+
+    return {
+      down: Math.sqrt(varDown), up: Math.sqrt(varUp), total: Math.sqrt(varTotal),
+      identityResidual: rel, nDown: neg.length, nUp: pos.length, nZero: nZero
+    };
+  }
+
+  /* RV_yz / RV_cc. Higher means more overnight risk that intraday estimators
+     cannot see. This function does not judge what counts as high; that is a
+     calibration decision and lives outside the core. */
+  function gapRatio(rvYz, rvCc){
+    if (rvCc <= 0) estErr("rv_cc must be > 0");
+    return rvYz / rvCc;
+  }
+
+  /* ============================ E[RV] forecast ============================= */
+
+  /* Blend RV across windows (HAR inspired, Corsi 2009) as an estimate of
+     future RV. The honest VRP compares today's IV against FUTURE realized vol,
+     and all we have is the past, so we blend windows to damp the effect of a
+     single spike (vol clustering).
+
+     `weights` is a required argument on purpose: the weights are a choice we
+     made, not something the mathematics fixes, so they must arrive from the
+     calibration layer. This function only does the weighted average and the
+     renormalization, which are fixed operations.
+
+     Windows without enough data are dropped and the remaining weights are
+     renormalized -- not filled with zero, which would drag E[RV] down. */
+  function forecastRV(close, weights){
+    if (arguments.length < 2 || weights === undefined || weights === null)
+      vrpErr("forecastRV requires explicit weights; they belong to the calibration layer");
+    var keys = Object.keys(weights).map(Number).sort(function(a, b){ return a - b; });
+    if (keys.length === 0) vrpErr("weights is empty");
+    for (var i = 0; i < keys.length; i++){
+      if (!(weights[keys[i]] >= 0)) vrpErr("weights contains a negative or non-numeric value");
+    }
+    var components = {}, used = [];
+    for (var j = 0; j < keys.length; j++){
+      var w = keys[j];
+      try {
+        components[w] = rvCloseToClose(close, w);
+        used.push(w);
+      } catch (e){
+        if (e && e.kind === "estimator") continue;   // not enough data for this window
+        throw e;
+      }
+    }
+    if (used.length === 0) vrpErr("not enough data for any of the requested windows");
+    var den = 0;
+    for (var k = 0; k < used.length; k++) den += weights[used[k]];
+    if (den <= 0) vrpErr("the usable windows carry a total weight of 0");
+
+    var eff = {}, value = 0;
+    for (var m = 0; m < used.length; m++){
+      eff[used[m]] = weights[used[m]] / den;
+      value += eff[used[m]] * components[used[m]];
+    }
+    return {
+      value: value, windowsUsed: used, weightsEffective: eff,
+      renormalized: used.length !== keys.length, components: components
+    };
+  }
+
+  /* ================================ 2.3 VRP ================================ */
+
+  /* VRP_vol = IV - RV,  VRP_var = IV^2 - RV^2,  VRP_ratio = IV / RV
+
+     Why variance is the headline and not vol: the P&L of a delta-hedged short
+     option is 1/2 * integral( Gamma * S^2 * (sigma_imp^2 - sigma_real^2) dt ).
+     What you collect is the difference in VARIANCE, weighted by dollar gamma.
+     (IV - RV) is only there because it reads more easily.
+
+     Self check: VRP_var / (2*IV) ~= VRP_vol to first order when IV is near RV. */
+  function computeVRP(iv, rv){
+    if (!(isFinite(iv) && isFinite(rv))) vrpErr("IV or RV is not a finite number");
+    if (!(iv > 0)) vrpErr("IV must be > 0 (got " + iv + ")");
+    if (!(rv > 0)) vrpErr("RV must be > 0 (got " + rv + ")");
+    var volPoints = (iv - rv) * 100.0;
+    var variance = iv * iv - rv * rv;
+    var ratio = iv / rv;
+    var approx = variance / (2.0 * iv) * 100.0;
+    return {
+      iv: iv, rv: rv, volPoints: volPoints, variance: variance, ratio: ratio,
+      selfcheckResidual: Math.abs(approx - volPoints),
+      isPositive: ratio >= 1.0
+    };
+  }
+
+  /* ======================= 2.4 Event decomposition ========================= */
+
+  /* T = DTE/365, total variance = IV_total^2 * T, event variance = J^2
+     (a one-day jump does not scale with time), and
+         IV_diff = sqrt( (IV_total^2*T - J^2) / T )
+
+     If the event variance swallows the total, we throw. Clamping to zero would
+     hide the fact that the two inputs contradict each other. */
+  function decomposeEvent(ivTotal, dte, impliedMove){
+    if (!(ivTotal > 0)) vrpErr("IV_total must be > 0 (got " + ivTotal + ")");
+    if (!(dte > 0)) vrpErr("DTE must be > 0 (got " + dte + ")");
+    if (!(impliedMove >= 0)) vrpErr("implied move is negative (" + impliedMove + ")");
+
+    var t = dte / 365.0;
+    var totalVar = ivTotal * ivTotal * t;
+    var eventVar = impliedMove * impliedMove;
+    var diffVar = totalVar - eventVar;
+
+    if (diffVar <= 0)
+      vrpErr("Event decomposition failed: event variance " + eventVar.toFixed(6) +
+             " is at least the total variance " + totalVar.toFixed(6) + ". An implied move of " +
+             (impliedMove * 100).toFixed(1) + "% is larger than an IV of " +
+             (ivTotal * 100).toFixed(1) + "% over " + dte + " DTE can support -- check both inputs");
+
+    return {
+      ivTotal: ivTotal, ivDiffusive: Math.sqrt(diffVar / t), jump: impliedMove, dte: dte,
+      totalVariance: totalVar, eventVariance: eventVar, diffusiveVariance: diffVar
+    };
+  }
+
+  /* Earnings VRP = implied move - median(|actual move|).
+     A separate game from the diffusive VRP: it asks whether the market prices
+     the SIZE OF THE JUMP richly compared with the jumps that happened. */
+  function earningsVRP(impliedMove, historicalMoves){
+    var h = asArray(historicalMoves, "historical moves").map(Math.abs);
+    if (h.length === 0) vrpErr("no historical move data");
+    for (var i = 0; i < h.length; i++) if (!isFinite(h[i])) vrpErr("historical moves contain NaN or Infinity");
+    var medianActual = middle(h);
+    return { vrpPoints: impliedMove - medianActual, medianActual: medianActual };
+  }
+
+  /* ============================= 2.5 IV metrics ============================ */
+
+  function ivRank(iv, ivMin, ivMax){
+    if (!(ivMax > ivMin)) vrpErr("iv_max must be > iv_min");
+    return (iv - ivMin) / (ivMax - ivMin) * 100.0;
+  }
+  function ivPercentile(iv, ivHistory){
+    var h = asArray(ivHistory, "iv history").filter(isFinite);
+    if (h.length === 0) vrpErr("iv history is empty");
+    var below = 0;
+    for (var i = 0; i < h.length; i++) if (h[i] < iv) below++;
+    return below / h.length * 100.0;
+  }
+  function termStructure(ivM1, ivM2){
+    if (!(ivM1 > 0) || !(ivM2 > 0)) vrpErr("IV must be > 0");
+    return ivM1 / ivM2;
+  }
+
+  /* ============================ position math ============================== */
+
+  function expectedMove(spot, iv, dte){
+    if (!(spot > 0)) posErr("spot must be > 0");
+    if (!(iv > 0)) posErr("IV must be > 0");
+    if (!(dte > 0)) posErr("DTE must be > 0");
+    return spot * iv * Math.sqrt(dte / 365.0);
+  }
+
+  /* PoP ~= 1 - |delta_short| at expiry, P_touch ~= 2*|delta_short| along the
+     way (reflection principle, driftless). These two always travel together:
+     a PoP of 85% with a touch probability of 30% means a stop-on-touch rule
+     gets hit far more often than the PoP suggests. */
+  function probabilities(deltaShort){
+    var d = Math.abs(Number(deltaShort));
+    if (!(d > 0 && d < 1)) posErr("delta must be between 0 and 1 (got " + deltaShort + ")");
+    var pop = 1.0 - d;
+    var touch = Math.min(2.0 * d, 1.0);
+    return { popExpiry: pop, pTouch: touch, deltaShort: d, touchPenalty: touch - (1.0 - pop) };
+  }
+
+  /* E = PoP*AvgWin - (1-PoP)*AvgLoss. Must always be shown next to the win
+     rate: a short put at delta 0.20 wins 80% of the time, and still loses
+     money if the average loss is six times the average win. */
+  function expectancy(pop, avgWin, avgLoss){
+    if (!(pop >= 0 && pop <= 1)) posErr("PoP must be within 0..1 (got " + pop + ")");
+    if (!(avgWin >= 0) || !(avgLoss >= 0)) posErr("avg win/loss must be non-negative (use absolute values)");
+    var v = pop * avgWin - (1.0 - pop) * avgLoss;
+    return { value: v, pop: pop, avgWin: avgWin, avgLoss: avgLoss, isPositive: v > 0 };
+  }
+
+  /* contracts = floor( portfolio * risk_pct / max_loss_per_contract ).
+     risk_pct is a choice and arrives from outside; this only divides.
+     Returning 0 contracts is a legitimate answer: the trade is too big. */
+  function positionSize(portfolio, riskPct, maxLossPerContract){
+    if (!(portfolio > 0)) posErr("portfolio must be > 0");
+    if (!(riskPct > 0 && riskPct < 1)) posErr("risk_pct must be within 0..1 (got " + riskPct + ")");
+    if (!(maxLossPerContract > 0)) posErr("max loss per contract must be > 0");
+    var budget = portfolio * riskPct;
+    var n = Math.floor(budget / maxLossPerContract);
+    return {
+      contracts: n, riskBudget: budget, maxLossPerContract: maxLossPerContract,
+      actualRiskPct: n > 0 ? (n * maxLossPerContract) / portfolio : 0.0
+    };
+  }
+
+  function creditSpreadMaxLoss(width, credit){
+    if (!(width > 0)) posErr("width must be > 0");
+    if (!(credit >= 0)) posErr("credit is negative");
+    if (credit >= width) posErr("credit >= width -- check the prices (arbitrage, or a bad input)");
+    return (width - credit) * 100.0;
+  }
+
+  /* Worst case on a cash-secured put is the stock going to zero. The number
+     looks brutal because it is, which is why cash-secured puts on high-vol
+     names eat more risk budget than most people assume. */
+  function cspMaxLoss(strike, credit){
+    if (!(strike > 0)) posErr("strike must be > 0");
+    if (!(credit >= 0)) posErr("credit is negative");
+    return (strike - credit) * 100.0;
+  }
+
+  return Object.freeze({
+    A: A,
+    logReturns: logReturns,
+    rvCloseToClose: rvCloseToClose,
+    rvParkinson: rvParkinson,
+    rvGarmanKlass: rvGarmanKlass,
+    rvYangZhang: rvYangZhang,
+    semivariance: semivariance,
+    gapRatio: gapRatio,
+    forecastRV: forecastRV,
+    computeVRP: computeVRP,
+    decomposeEvent: decomposeEvent,
+    earningsVRP: earningsVRP,
+    ivRank: ivRank,
+    ivPercentile: ivPercentile,
+    termStructure: termStructure,
+    expectedMove: expectedMove,
+    probabilities: probabilities,
+    expectancy: expectancy,
+    positionSize: positionSize,
+    creditSpreadMaxLoss: creditSpreadMaxLoss,
+    cspMaxLoss: cspMaxLoss
+  });
+}
+/* ===========================================================================
+   CONFIG -- THE CALIBRATION LAYER. Port of vrp_app/config/defaults.py
+   ---------------------------------------------------------------------------
+   Every number we chose ourselves lives here, and only here. Each one carries
+   its provenance so the UI can say whether it is a published result or a
+   practitioner habit.
+
+   The warning that has to reach the user: index-level VRP (SPX/SPY) is large
+   and stable, but single-stock VRP is much thinner. Driessen, Maenhout and
+   Vilkov (2009, Journal of Finance) showed the index premium comes from a
+   CORRELATION risk premium rather than a volatility premium, and that single
+   stock options are priced close to fair. The thresholds below are therefore
+   set higher than index work would need, and should still be treated as a
+   starting point for tuning rather than as proven values.
+   =========================================================================== */
+function buildConfig(){
+
+  function defaults(){
+    return {
+      /* ---- E[RV] forecast ---- */
+      harWeights: { 20: 0.50, 60: 0.30, 120: 0.20 },
+
+      /* ---- VRP thresholds ---- */
+      vrpStrong: 1.25,
+      vrpGood: 1.15,
+      vrpThin: 1.05,
+
+      /* ---- side selection ---- */
+      semivolScale: 1.4142135623730951,
+      legEdgeGapPts: 2.0,
+
+      /* ---- event ---- */
+      straddleToMove: 0.85,
+      earningsEdgeRatio: 1.25,
+
+      /* ---- gates ---- */
+      ivpFloor: 20.0,
+      tsBackwardation: 1.05,
+      spreadMaxPct: 10.0,
+      oiMin: 100,
+      gapRatioWarn: 1.25,
+
+      /* ---- liquidity bonus ---- */
+      spreadGoodPct: 5.0,
+      oiGood: 500,
+
+      /* ---- scoring ---- */
+      ivpStrong: 50.0,
+      ivpOk: 30.0,
+      eventClearBufferDays: 5,
+      scoreEnter: 8,
+      scoreHalf: 6,
+      scoreWait: 4,
+
+      /* ---- position ---- */
+      dteMin: 30,
+      dteMax: 45,
+      deltaMin: 0.15,
+      deltaMax: 0.30,
+      tpPct: 0.50,
+      slCreditMultiple: 2.0,
+      timeExitDte: 21,
+      riskFull: 0.015,
+      riskHalf: 0.0075,
+      minCreditToWidth: 0.25
+    };
+  }
+
+  /* Returns a list of problems. Empty means the configuration is coherent. */
+  function validate(cfg){
+    var issues = [];
+    if (!(cfg.vrpThin < cfg.vrpGood && cfg.vrpGood < cfg.vrpStrong))
+      issues.push("VRP thresholds must be ordered thin < good < strong");
+    if (cfg.vrpThin < 1.0)
+      issues.push("vrp_thin below 1.00 would award points to a negative VRP, which contradicts gate G1");
+    if (!(cfg.scoreWait < cfg.scoreHalf && cfg.scoreHalf < cfg.scoreEnter))
+      issues.push("score bands must be ordered wait < half < enter");
+    if (!(cfg.deltaMin > 0 && cfg.deltaMin < cfg.deltaMax && cfg.deltaMax < 1))
+      issues.push("the delta range is not valid");
+    if (!(cfg.riskHalf > 0 && cfg.riskHalf <= cfg.riskFull && cfg.riskFull < 1))
+      issues.push("risk_half must be <= risk_full and both must sit within 0..1");
+    if (cfg.dteMin > cfg.dteMax)
+      issues.push("dte_min is greater than dte_max");
+    var wsum = 0, ks = Object.keys(cfg.harWeights);
+    for (var i = 0; i < ks.length; i++) wsum += cfg.harWeights[ks[i]];
+    if (!(wsum > 0)) issues.push("HAR weights sum to 0 or less");
+    if (cfg.ivpFloor < 0 || cfg.ivpFloor > 100)
+      issues.push("ivp_floor must sit within 0..100");
+    return issues;
+  }
+
+  /* Where each number comes from. The UI turns this into a tooltip. */
+  var PROVENANCE = {
+    harWeights: ["heuristic",
+      "HAR inspired (Corsi 2009 uses 1/5/22 days). The 0.50/0.30/0.20 split is our own choice, not a canonical value. Tune it."],
+    vrpStrong: ["heuristic", "Practitioner threshold. No research backs this exact number."],
+    vrpGood: ["heuristic", "Practitioner threshold."],
+    vrpThin: ["heuristic", "Practitioner threshold."],
+    semivolScale: ["heuristic",
+      "sqrt(2) makes a semivol comparable with a full vol when returns are symmetric. Note that part of the extra put IV is a crash risk premium that deserves to be there, not pure mispricing."],
+    legEdgeGapPts: ["heuristic", "How many vol points one leg must beat the other by to count as a clear win."],
+    straddleToMove: ["heuristic", "ATM straddle to expected absolute move. 0.85 is the usual working figure."],
+    earningsEdgeRatio: ["heuristic", "Implied over median actual move that we treat as enough edge to trade the event."],
+    ivpFloor: ["heuristic", "Vol floor. Below this the premium does not cover slippage."],
+    tsBackwardation: ["heuristic", "The M1/M2 level we treat as abnormal backwardation."],
+    spreadMaxPct: ["heuristic", "Widest bid-ask, as a percentage, we will still trade."],
+    oiMin: ["heuristic", "Minimum open interest for an orderly exit."],
+    gapRatioWarn: ["heuristic", "RV_yz/RV_cc at which overnight risk is high enough to cut size."],
+    spreadGoodPct: ["heuristic", "Spread tight enough to earn the liquidity point."],
+    oiGood: ["heuristic", "Open interest deep enough to earn the liquidity point."],
+    ivpStrong: ["heuristic", "IV percentile worth the full two points."],
+    ivpOk: ["heuristic", "IV percentile worth one point."],
+    eventClearBufferDays: ["heuristic", "Extra days beyond DTE that must also be event free."],
+    scoreEnter: ["heuristic", "Score band for a full-size entry."],
+    scoreHalf: ["heuristic", "Score band for a half-size entry."],
+    scoreWait: ["heuristic", "Score band below which we do not enter at all."],
+    dteMin: ["heuristic", "Lower end of the usual short premium window."],
+    dteMax: ["heuristic", "Upper end of the usual short premium window."],
+    deltaMin: ["heuristic", "Delta range commonly used for short premium."],
+    deltaMax: ["heuristic", "Delta range commonly used for short premium."],
+    tpPct: ["heuristic", "Close at 50% of the credit. A practitioner convention."],
+    slCreditMultiple: ["heuristic", "Stop at this multiple of the credit received."],
+    timeExitDte: ["heuristic", "21 DTE. Gamma risk accelerates after this. A convention, not a research result."],
+    riskFull: ["heuristic", "1.5% of the portfolio per trade. A risk budget we chose."],
+    riskHalf: ["heuristic", "0.75% of the portfolio per trade."],
+    minCreditToWidth: ["heuristic", "Minimum credit as a fraction of spread width for the trade to be worth it."]
+  };
+
+  /* Field metadata for the calibration editor. */
+  var GROUPS = [
+    ["E[RV] forecast", [
+      ["harWeights.20", "HAR weight, 20d", 0.01],
+      ["harWeights.60", "HAR weight, 60d", 0.01],
+      ["harWeights.120", "HAR weight, 120d", 0.01]
+    ]],
+    ["VRP thresholds", [
+      ["vrpStrong", "Strong VRP ratio", 0.01],
+      ["vrpGood", "Good VRP ratio", 0.01],
+      ["vrpThin", "Thin VRP ratio", 0.01]
+    ]],
+    ["Side selection", [
+      ["semivolScale", "Semivol to vol scale", 0.0001],
+      ["legEdgeGapPts", "Clear-win gap (vol pts)", 0.1]
+    ]],
+    ["Event", [
+      ["straddleToMove", "Straddle to move factor", 0.01],
+      ["earningsEdgeRatio", "Earnings edge ratio", 0.01]
+    ]],
+    ["Gates", [
+      ["ivpFloor", "IV percentile floor", 1],
+      ["tsBackwardation", "Backwardation limit (M1/M2)", 0.01],
+      ["spreadMaxPct", "Max bid-ask spread (%)", 0.5],
+      ["oiMin", "Min open interest", 10],
+      ["gapRatioWarn", "Gap ratio warning (YZ/CC)", 0.01]
+    ]],
+    ["Liquidity bonus", [
+      ["spreadGoodPct", "Good spread (%)", 0.5],
+      ["oiGood", "Good open interest", 50]
+    ]],
+    ["Scoring", [
+      ["ivpStrong", "IVP worth 2 points", 1],
+      ["ivpOk", "IVP worth 1 point", 1],
+      ["eventClearBufferDays", "Event-free buffer (days)", 1],
+      ["scoreEnter", "ENTER at score", 1],
+      ["scoreHalf", "HALF SIZE at score", 1],
+      ["scoreWait", "WAIT at score", 1]
+    ]],
+    ["Position", [
+      ["dteMin", "DTE target, min", 1],
+      ["dteMax", "DTE target, max", 1],
+      ["deltaMin", "Short delta, min", 0.01],
+      ["deltaMax", "Short delta, max", 0.01],
+      ["tpPct", "Take profit (fraction of credit)", 0.05],
+      ["slCreditMultiple", "Stop loss (x credit)", 0.1],
+      ["timeExitDte", "Time exit at DTE", 1],
+      ["riskFull", "Risk per full-size trade", 0.0005],
+      ["riskHalf", "Risk per half-size trade", 0.0005],
+      ["minCreditToWidth", "Min credit / width", 0.01]
+    ]]
+  ];
+
+  var DISCLAIMER =
+    "Statistical analysis, not investment advice. VRP is a long-run expectation: " +
+    "a single trade can still lose in full. Selling premium means winning often and " +
+    "losing big, so position sizing matters more than the accuracy of the VRP estimate.";
+
+  return Object.freeze({
+    defaults: defaults,
+    validate: validate,
+    PROVENANCE: PROVENANCE,
+    GROUPS: GROUPS,
+    DISCLAIMER: DISCLAIMER
+  });
+}
+/* ===========================================================================
+   DATAIO -- CSV loading and validation. Port of vrp_app/dataio/loader.py
+   ---------------------------------------------------------------------------
+   Fail fast, and never invent a value that is missing. The one deliberate
+   difference from the Python version: bad rows are reported by their line
+   number in the file rather than by DataFrame index, because that is what the
+   reader can actually go and look at.
+   =========================================================================== */
+function buildDataIO(){
+
+  var REQUIRED = ["open", "high", "low", "close"];
+  var MIN_ROWS_HARD = 21;    // below this RV20 cannot be computed
+  var MIN_ROWS_FULL = 130;   // below this the HAR blend has to renormalize
+  var IV_MIN_PCT = 5.0, IV_MAX_PCT = 300.0;
+
+  function dataErr(m){
+    var e = new Error(m);
+    e.name = "CoreError";
+    e.kind = "data";
+    throw e;
+  }
+
+  function splitRow(line, delim){
+    var out = [], cur = "", inQ = false;
+    for (var i = 0; i < line.length; i++){
+      var ch = line[i];
+      if (ch === '"'){
+        if (inQ && line[i + 1] === '"'){ cur += '"'; i++; }
+        else inQ = !inQ;
+      } else if (ch === delim && !inQ){
+        out.push(cur); cur = "";
+      } else cur += ch;
+    }
+    out.push(cur);
+    return out;
+  }
+
+  function detectDelimiter(headerLine){
+    var best = ",", bestN = -1;
+    [",", "\t", ";", "|"].forEach(function(d){
+      var n = headerLine.split(d).length;
+      if (n > bestN){ bestN = n; best = d; }
+    });
+    return best;
+  }
+
+  /* Accepts raw CSV text. Column names are case insensitive, 'Adj Close' is
+     accepted in place of Close, and rows are sorted by date when a date
+     column exists. */
+  function loadOHLC(text){
+    if (typeof text !== "string" || text.trim() === "") dataErr("No data: the file or pasted text is empty");
+
+    var lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+    var raw = [];
+    for (var i = 0; i < lines.length; i++){
+      if (lines[i].trim() !== "") raw.push({ line: i + 1, text: lines[i] });
+    }
+    if (raw.length < 2) dataErr("No data: need a header row and at least one data row");
+
+    var warnings = [];
+    var delim = detectDelimiter(raw[0].text);
+    if (delim !== ",") warnings.push("Detected a '" + (delim === "\t" ? "tab" : delim) + "' delimiter instead of a comma.");
+
+    var header = splitRow(raw[0].text, delim).map(function(c){
+      return String(c).trim().toLowerCase().replace(/\s+/g, "_").replace(/^"|"$/g, "");
+    });
+
+    var idx = {};
+    header.forEach(function(name, j){ if (!(name in idx)) idx[name] = j; });
+
+    if (!("close" in idx) && "adj_close" in idx){
+      idx.close = idx.adj_close;
+      warnings.push("Using 'Adj Close' as the close price.");
+    }
+    if (!("close" in idx)) dataErr("No Close column found (an 'Adj Close' column would also be accepted)");
+
+    var dateKey = null;
+    ["date", "datetime", "time"].forEach(function(k){ if (dateKey === null && k in idx) dateKey = k; });
+
+    var hasOhlc = REQUIRED.every(function(c){ return c in idx; });
+    if (!hasOhlc){
+      var missing = REQUIRED.filter(function(c){ return !(c in idx); });
+      warnings.push("Missing column(s) " + missing.join(", ") +
+        " -- only close-to-close RV can be computed. No Parkinson, Garman-Klass, Yang-Zhang or gap ratio.");
+    }
+    var checkCols = hasOhlc ? REQUIRED : ["close"];
+
+    var recs = [], badDates = 0, droppedBlank = 0;
+    for (var r = 1; r < raw.length; r++){
+      var cells = splitRow(raw[r].text, delim);
+      var rec = { line: raw[r].line, t: null };
+      var skip = false;
+      for (var k = 0; k < checkCols.length; k++){
+        var col = checkCols[k];
+        var v = Number(String(cells[idx[col]] === undefined ? "" : cells[idx[col]]).trim().replace(/,/g, ""));
+        if (!isFinite(v) || String(cells[idx[col]]).trim() === ""){ skip = true; break; }
+        rec[col] = v;
+      }
+      if (skip){ droppedBlank++; continue; }
+      if (dateKey !== null){
+        var ds = String(cells[idx[dateKey]] === undefined ? "" : cells[idx[dateKey]]).trim();
+        var t = Date.parse(ds);
+        if (isNaN(t)){ badDates++; continue; }
+        rec.t = t;
+        rec.date = ds;
+      }
+      recs.push(rec);
+    }
+
+    if (badDates) warnings.push("Dropped " + badDates + " row(s) with an unreadable date.");
+    if (droppedBlank) warnings.push("Dropped " + droppedBlank + " row(s) with a blank or non-numeric price.");
+
+    if (dateKey === null){
+      warnings.push("No date column -- assuming the rows are already ordered oldest to newest.");
+    } else {
+      recs.sort(function(a, b){ return a.t - b.t; });
+    }
+
+    for (var m = 0; m < recs.length; m++){
+      for (var c2 = 0; c2 < checkCols.length; c2++){
+        if (recs[m][checkCols[c2]] <= 0) dataErr("Found a price <= 0 at line " + recs[m].line + " -- the data is corrupt");
+      }
+    }
+
+    if (hasOhlc){
+      var bad = [];
+      for (var n = 0; n < recs.length; n++){
+        var q = recs[n];
+        if (q.high < q.low || q.high < q.close || q.high < q.open || q.low > q.close || q.low > q.open)
+          bad.push(q.line);
+      }
+      if (bad.length)
+        dataErr("Found " + bad.length + " row(s) with impossible OHLC (High must be the largest, Low the smallest) at line(s): " +
+                bad.slice(0, 10).join(", ") + (bad.length > 10 ? ", ..." : ""));
+    }
+
+    var rows = recs.length;
+    if (rows < MIN_ROWS_HARD)
+      dataErr("Only " + rows + " usable row(s) -- at least " + MIN_ROWS_HARD + " are needed to compute RV20");
+    if (rows < MIN_ROWS_FULL)
+      warnings.push("Only " + rows + " rows (fewer than " + MIN_ROWS_FULL +
+        ") -- the HAR blend will renormalize its weights and E[RV] will lean on the short window more than intended.");
+
+    var out = { rows: rows, hasOhlc: hasOhlc, warnings: warnings, dates: [], close: [] };
+    if (hasOhlc){ out.open = []; out.high = []; out.low = []; }
+    for (var p = 0; p < recs.length; p++){
+      out.close.push(recs[p].close);
+      out.dates.push(recs[p].date || null);
+      if (hasOhlc){ out.open.push(recs[p].open); out.high.push(recs[p].high); out.low.push(recs[p].low); }
+    }
+    return out;
+  }
+
+  /* Accepts IV as a percentage (52.4) or as a decimal (0.524) and returns a
+     decimal. It never guesses silently: every interpretation comes back as a
+     note for the UI to show. A missing value returns null, never 0. */
+  function normalizeIV(value, label){
+    label = label || "IV";
+    if (value === null || value === undefined || value === "") return { value: null, notes: [] };
+    var v = Number(value);
+    if (!isFinite(v)) dataErr(label + " is not a number");
+    var notes = [];
+    if (v <= 0) dataErr(label + " must be > 0 (got " + v + ")");
+    var dec;
+    if (v < 1.0){
+      notes.push(label + " = " + v + " read as a decimal (" + (v * 100).toFixed(1) + "%)");
+      dec = v;
+    } else {
+      dec = v / 100.0;
+    }
+    var pct = dec * 100.0;
+    if (pct < IV_MIN_PCT || pct > IV_MAX_PCT)
+      notes.push(label + " = " + pct.toFixed(1) + "% sits outside the usual " +
+                 IV_MIN_PCT.toFixed(0) + "-" + IV_MAX_PCT.toFixed(0) + "% range -- check the units again");
+    return { value: dec, notes: notes };
+  }
+
+  /* Comma separated list of numbers -> array. Empty input returns null, not []. */
+  function parseNumberList(text){
+    if (text === null || text === undefined || String(text).trim() === "") return null;
+    var parts = String(text).split(/[,;\s]+/).filter(function(s){ return s !== ""; });
+    var out = [];
+    for (var i = 0; i < parts.length; i++){
+      var v = Number(parts[i]);
+      if (!isFinite(v)) dataErr("'" + parts[i] + "' in the list of past moves is not a number");
+      out.push(v);
+    }
+    return out.length ? out : null;
+  }
+
+  return Object.freeze({
+    loadOHLC: loadOHLC,
+    normalizeIV: normalizeIV,
+    parseNumberList: parseNumberList,
+    MIN_ROWS_HARD: MIN_ROWS_HARD,
+    MIN_ROWS_FULL: MIN_ROWS_FULL
+  });
+}
+/* ===========================================================================
+   ENGINE -- the decision layer. Port of vrp_app/engine/decide.py
+   ---------------------------------------------------------------------------
+   The only block allowed to combine the fixed core with the tunable
+   calibration. Three principles are built into the structure:
+
+   1. A hard gate cuts before any score is considered. A perfect 10 does not
+      rescue a failed G1.
+   2. A gate that cannot be checked is UNKNOWN, never PASS, and the verdict
+      carries a caveat saying so.
+   3. effective_ratio uses the Clean VRP whenever the event can be stripped
+      out. This is where ordinary screeners go wrong: IV that contains an
+      earnings jump is not premium a delta hedge can collect.
+   =========================================================================== */
+function buildEngine(CORE){
+
+  var Verdict = {
+    ENTER: "ENTER", HALF_SIZE: "HALF SIZE", WAIT: "WAIT",
+    DO_NOT_ENTER: "DO NOT ENTER", INSUFFICIENT: "INSUFFICIENT DATA"
+  };
+  var Side = { SHORT_PUT: "SHORT_PUT", SHORT_CALL: "SHORT_CALL", NEITHER: "NEITHER" };
+  var GateResult = { PASS: "PASS", FAIL: "FAIL", UNKNOWN: "UNKNOWN" };
+
+  function gate(code, name, result, detail, onFail){
+    return { code: code, name: name, result: result, detail: detail, onFail: onFail };
+  }
+
+  /* VRP_put  = IV(d25P) - RV_down * scale
+     VRP_call = IV(d25C) - RV_up   * scale
+
+     With no delta-25 IV we fall back to ATM on both sides and flag it. The
+     fallback makes the comparison much weaker: both sides then carry the same
+     IV, so the difference comes from semivariance alone. */
+  function computeLegs(semi, cfg, ivPut25, ivCall25, ivAtm){
+    var fallback = (ivPut25 === null || ivPut25 === undefined || ivCall25 === null || ivCall25 === undefined);
+    var ivp = (ivPut25 === null || ivPut25 === undefined) ? ivAtm : ivPut25;
+    var ivc = (ivCall25 === null || ivCall25 === undefined) ? ivAtm : ivCall25;
+
+    var downS = semi.down * cfg.semivolScale;
+    var upS = semi.up * cfg.semivolScale;
+
+    var vrpPut = (ivp - downS) * 100.0;
+    var vrpCall = (ivc - upS) * 100.0;
+
+    var realizedSkew = semi.up > 0 ? semi.down / semi.up : null;
+    var impliedSkew = ivc > 0 ? ivp / ivc : null;
+    var skewGap = (impliedSkew && realizedSkew) ? impliedSkew / realizedSkew : null;
+
+    var favored;
+    if (vrpPut <= 0 && vrpCall <= 0) favored = Side.NEITHER;
+    else if (vrpPut >= vrpCall) favored = Side.SHORT_PUT;
+    else favored = Side.SHORT_CALL;
+
+    return {
+      vrpPutPts: vrpPut, vrpCallPts: vrpCall,
+      rvDownScaled: downS, rvUpScaled: upS,
+      realizedSkew: realizedSkew, impliedSkew: impliedSkew, skewGap: skewGap,
+      favored: favored, edgeGapPts: Math.abs(vrpPut - vrpCall),
+      usedAtmFallback: fallback
+    };
+  }
+
+  function has(v){ return v !== null && v !== undefined; }
+
+  function decide(o){
+    var cfg = o.cfg, vrp = o.vrp, dte = o.dte;
+    var event = has(o.event) ? o.event : null;
+    var semi = has(o.semi) ? o.semi : null;
+    var ivp = has(o.ivp) ? o.ivp : null;
+    var termStruct = has(o.termStruct) ? o.termStruct : null;
+    var termStructExplained = o.termStructExplained === true;
+    var earningsDays = has(o.earningsDays) ? o.earningsDays : null;
+    var tradingTheEvent = o.tradingTheEvent === true;
+    var spreadPct = has(o.spreadPct) ? o.spreadPct : null;
+    var openInterest = has(o.openInterest) ? o.openInterest : null;
+    var rvYz = has(o.rvYz) ? o.rvYz : null;
+    var requestedSide = has(o.requestedSide) && o.requestedSide !== "" ? o.requestedSide : null;
+    var trendAligned = has(o.trendAligned) ? o.trendAligned : null;
+
+    var d = {
+      verdict: Verdict.INSUFFICIENT, side: Side.NEITHER, score: 0, maxScore: 10,
+      scoreDetail: [], gates: [], reason: "", caveats: [], warnings: [],
+      effectiveRatio: null, effectiveRatioSource: "raw", legs: null, confidence: "Low"
+    };
+
+    /* ---- effective ratio: Clean VRP always beats raw when it is available ---- */
+    if (event !== null){
+      d.effectiveRatio = event.ivDiffusive / vrp.rv;
+      d.effectiveRatioSource = "clean";
+      if (vrp.ratio >= 1.0 && d.effectiveRatio < 1.0){
+        d.warnings.push(
+          "Raw VRP is positive (" + vrp.ratio.toFixed(2) + ") but Clean VRP is negative (" +
+          d.effectiveRatio.toFixed(2) + ") -- the whole premium comes from the event, not from a " +
+          "diffusive edge. Selling this now is a pure bet on the size of the jump.");
+      }
+    } else {
+      d.effectiveRatio = vrp.ratio;
+      d.effectiveRatioSource = "raw";
+    }
+
+    /* ---- legs ---- */
+    if (semi !== null){
+      d.legs = computeLegs(semi, cfg, o.ivPut25, o.ivCall25, vrp.iv);
+      if (d.legs.usedAtmFallback){
+        d.warnings.push(
+          "No delta-25 IV supplied -- ATM IV was used on both sides, so the choice of side " +
+          "reflects semivariance alone and cannot see the real skew.");
+      }
+      d.side = requestedSide || d.legs.favored;
+    } else {
+      d.side = requestedSide || Side.NEITHER;
+      d.warnings.push("No daily price data -- semivariance cannot be computed and no side can be chosen.");
+    }
+
+    if (rvYz !== null && rvYz / vrp.rv > cfg.gapRatioWarn){
+      d.warnings.push(
+        "Gap ratio (YZ/CC) = " + (rvYz / vrp.rv).toFixed(2) + ", above " + cfg.gapRatioWarn +
+        " -- overnight jump risk is high: a short put can go through the strike with no chance " +
+        "to adjust. Use defined risk and cut the size.");
+    }
+
+    /* ---- gates ---- */
+    var g = d.gates;
+    var er = d.effectiveRatio;
+
+    g.push(gate("G1", "VRP positive",
+      er >= 1.0 ? GateResult.PASS : GateResult.FAIL,
+      "effective ratio (" + d.effectiveRatioSource + ") = " + er.toFixed(3),
+      Verdict.DO_NOT_ENTER));
+
+    if (earningsDays === null){
+      g.push(gate("G2", "No event inside DTE", GateResult.UNKNOWN,
+        "earnings date unknown", Verdict.WAIT));
+    } else if (tradingTheEvent){
+      g.push(gate("G2", "No event inside DTE", GateResult.PASS,
+        "trading the event on purpose -- gate skipped by the user", Verdict.WAIT));
+    } else {
+      var clear = earningsDays > dte;
+      g.push(gate("G2", "No event inside DTE",
+        clear ? GateResult.PASS : GateResult.FAIL,
+        "earnings in " + earningsDays + " days vs DTE " + dte, Verdict.WAIT));
+    }
+
+    if (spreadPct === null || openInterest === null){
+      g.push(gate("G3", "Liquidity", GateResult.UNKNOWN,
+        "no bid-ask or open interest -- check this before sending a real order",
+        Verdict.DO_NOT_ENTER));
+    } else {
+      var liqOk = spreadPct <= cfg.spreadMaxPct && openInterest >= cfg.oiMin;
+      g.push(gate("G3", "Liquidity",
+        liqOk ? GateResult.PASS : GateResult.FAIL,
+        "spread " + spreadPct.toFixed(1) + "% (max " + cfg.spreadMaxPct + "), OI " +
+        openInterest + " (min " + cfg.oiMin + ")", Verdict.DO_NOT_ENTER));
+    }
+
+    if (termStruct === null){
+      g.push(gate("G4", "Term structure", GateResult.UNKNOWN, "no IV for M1/M2", Verdict.WAIT));
+    } else {
+      var tsOk = termStruct <= cfg.tsBackwardation || termStructExplained;
+      g.push(gate("G4", "Term structure",
+        tsOk ? GateResult.PASS : GateResult.FAIL,
+        "M1/M2 = " + termStruct.toFixed(3) + (termStructExplained ? " (cause given by the user)" : ""),
+        Verdict.WAIT));
+    }
+
+    if (ivp === null){
+      g.push(gate("G5", "IV floor", GateResult.UNKNOWN, "no IV percentile", Verdict.WAIT));
+    } else {
+      g.push(gate("G5", "IV floor",
+        ivp >= cfg.ivpFloor ? GateResult.PASS : GateResult.FAIL,
+        "IVP " + ivp.toFixed(0) + " (floor " + cfg.ivpFloor.toFixed(0) + ")", Verdict.WAIT));
+    }
+
+    var legVrp = null;
+    if (d.legs === null || d.side === Side.NEITHER){
+      g.push(gate("G6", "Leg VRP positive", GateResult.UNKNOWN,
+        "no side could be chosen", Verdict.DO_NOT_ENTER));
+    } else {
+      legVrp = (d.side === Side.SHORT_PUT) ? d.legs.vrpPutPts : d.legs.vrpCallPts;
+      g.push(gate("G6", "Leg VRP positive",
+        legVrp > 0 ? GateResult.PASS : GateResult.FAIL,
+        d.side + " leg VRP = " + (legVrp >= 0 ? "+" : "") + legVrp.toFixed(2) + " pts",
+        Verdict.DO_NOT_ENTER));
+    }
+
+    /* ---- score: always computed so the picture is visible, but gates cut first ---- */
+    function add(pts, why){
+      d.score += pts;
+      d.scoreDetail.push({ pts: pts, why: why });
+    }
+
+    if (er >= cfg.vrpStrong) add(3, "VRP " + er.toFixed(2) + " at or above " + cfg.vrpStrong);
+    else if (er >= cfg.vrpGood) add(2, "VRP " + er.toFixed(2) + " at or above " + cfg.vrpGood);
+    else if (er >= cfg.vrpThin) add(1, "VRP " + er.toFixed(2) + " at or above " + cfg.vrpThin);
+    else add(0, "VRP " + er.toFixed(2) + " below " + cfg.vrpThin + " -- almost no edge");
+
+    if (ivp === null) add(0, "IV percentile unknown");
+    else if (ivp >= cfg.ivpStrong) add(2, "IVP " + ivp.toFixed(0) + " at or above " + cfg.ivpStrong.toFixed(0));
+    else if (ivp >= cfg.ivpOk) add(1, "IVP " + ivp.toFixed(0) + " at or above " + cfg.ivpOk.toFixed(0));
+    else add(0, "IVP " + ivp.toFixed(0) + " below " + cfg.ivpOk.toFixed(0));
+
+    if (legVrp === null || d.legs === null){
+      add(0, "leg VRP unknown");
+    } else {
+      var other = (d.side === Side.SHORT_PUT) ? d.legs.vrpCallPts : d.legs.vrpPutPts;
+      var sign = legVrp >= 0 ? "+" : "";
+      if (legVrp > 0 && other !== null && (legVrp - other) >= cfg.legEdgeGapPts)
+        add(2, d.side + " leg VRP " + sign + legVrp.toFixed(1) + " beats the other side by at least " +
+               cfg.legEdgeGapPts + " pts");
+      else if (legVrp > 0)
+        add(1, d.side + " leg VRP " + sign + legVrp.toFixed(1) + " is positive but not a clear win");
+      else
+        add(0, d.side + " leg VRP " + sign + legVrp.toFixed(1) + " is negative");
+    }
+
+    if (trendAligned === true){
+      add(1, "trend agrees with the delta of the short side");
+    } else if (trendAligned === false){
+      add(0, "trend runs against the short side");
+      d.warnings.push(
+        "Semivariance and trend disagree -- halve the size, or use defined risk on both legs. " +
+        "VRP is a long-run expectation that has to survive many trades, but a delta on the wrong " +
+        "side kills you on the first one.");
+    } else {
+      add(0, "trend unknown");
+    }
+
+    if (earningsDays !== null && earningsDays > dte + cfg.eventClearBufferDays)
+      add(1, "no event within DTE+" + cfg.eventClearBufferDays);
+    else
+      add(0, "an event is near, or the date is unknown");
+
+    if (spreadPct !== null && openInterest !== null &&
+        spreadPct <= cfg.spreadGoodPct && openInterest >= cfg.oiGood)
+      add(1, "good liquidity (spread " + spreadPct.toFixed(1) + "%, OI " + openInterest + ")");
+    else
+      add(0, "liquidity is not in the good band, or is unknown");
+
+    /* ---- verdict: gates always beat the score ---- */
+    var failed = d.gates.filter(function(x){ return x.result === GateResult.FAIL; });
+    if (failed.length){
+      var hard = failed.some(function(x){ return x.onFail === Verdict.DO_NOT_ENTER; });
+      d.verdict = hard ? Verdict.DO_NOT_ENTER : Verdict.WAIT;
+      d.reason = "Hard gate not passed: " + failed.map(function(x){ return x.code + " " + x.name; }).join(", ");
+    } else {
+      if (d.score >= cfg.scoreEnter) d.verdict = Verdict.ENTER;
+      else if (d.score >= cfg.scoreHalf) d.verdict = Verdict.HALF_SIZE;
+      else if (d.score >= cfg.scoreWait) d.verdict = Verdict.WAIT;
+      else d.verdict = Verdict.DO_NOT_ENTER;
+      d.reason = "Score " + d.score + "/" + d.maxScore + ", passing every hard gate that could be checked";
+    }
+
+    var unknown = d.gates.filter(function(x){ return x.result === GateResult.UNKNOWN; });
+    if (unknown.length){
+      d.caveats.push(
+        "Gates that could not be checked because data is missing: " +
+        unknown.map(function(x){ return x.code + " (" + x.detail + ")"; }).join(", ") +
+        " -- the verdict is incomplete.");
+    }
+
+    if (unknown.length === 0 && d.legs !== null && !d.legs.usedAtmFallback) d.confidence = "High";
+    else if (unknown.length <= 2) d.confidence = "Medium";
+    else d.confidence = "Low";
+
+    if (d.verdict === Verdict.DO_NOT_ENTER) d.side = Side.NEITHER;
+
+    d.failedGates = failed;
+    d.unknownGates = unknown;
+    d.tradeable = (d.verdict === Verdict.ENTER || d.verdict === Verdict.HALF_SIZE);
+    return d;
+  }
+
+  return Object.freeze({
+    Verdict: Verdict, Side: Side, GateResult: GateResult,
+    computeLegs: computeLegs, decide: decide
+  });
+}
+/* ===========================================================================
+   SYNTH -- deterministic data generators, for the self-tests and the demo
+   ---------------------------------------------------------------------------
+   The Python suite leans on numpy's default_rng. There is no way to reproduce
+   that bit stream here, so this uses mulberry32 plus Box-Muller. Every
+   assertion in the ported suite is a tolerance or an ordering, i.e. a property
+   of the estimator rather than of one particular draw, so a different but
+   correct normal stream satisfies them just the same. The margins were
+   measured against the Python reference before porting.
+
+   goldenPath() is different: it is a closed form with no randomness at all, so
+   Python and JavaScript compute the same doubles and the ported code can be
+   checked against numbers produced by the reference implementation.
+   =========================================================================== */
+function buildSynth(){
+
+  function mulberry32(seed){
+    var a = seed >>> 0;
+    return function(){
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /* Box-Muller on top of mulberry32, with the second value cached. */
+  function normalGen(seed){
+    var u = mulberry32(seed), spare = null;
+    return function(){
+      if (spare !== null){ var s = spare; spare = null; return s; }
+      var a = 0, b = 0;
+      while (a === 0) a = u();
+      b = u();
+      var r = Math.sqrt(-2.0 * Math.log(a)), th = 2.0 * Math.PI * b;
+      spare = r * Math.sin(th);
+      return r * Math.cos(th);
+    };
+  }
+
+  var A = 252;
+
+  function gbmCloses(sigma, n, seed, s0, mu){
+    s0 = (s0 === undefined) ? 100.0 : s0;
+    mu = (mu === undefined) ? 0.0 : mu;
+    var z = normalGen(seed);
+    var dt = 1.0 / A, drift = (mu - 0.5 * sigma * sigma) * dt, sd = sigma * Math.sqrt(dt);
+    var out = new Array(n), acc = 0;
+    for (var i = 0; i < n; i++){
+      acc += drift + sd * z();
+      out[i] = s0 * Math.exp(acc);
+    }
+    return out;
+  }
+
+  /* OHLC with a controllable split between overnight gap and intraday range.
+
+     The generator is seeded with the same seed as the close series on purpose.
+     numpy's default_rng(seed) does the same in the Python suite, so the gap
+     draws are the very normals that produced the returns, and the intraday
+     draws follow them. That correlation widens the daily range on big days,
+     which is what sets the margins those tests rely on. */
+  function ohlcFromCloses(close, seed, gapSigma, intradaySigma){
+    var z = normalGen(seed);
+    var n = close.length, open = new Array(n), high = new Array(n), low = new Array(n);
+    for (var i = 0; i < n; i++) open[i] = close[i] * Math.exp(gapSigma * z());
+    for (var j = 0; j < n; j++) high[j] = Math.max(open[j], close[j]) * Math.exp(Math.abs(intradaySigma * z()));
+    for (var k = 0; k < n; k++) low[k] = Math.min(open[k], close[k]) * Math.exp(-Math.abs(intradaySigma * z()));
+    return { open: open, high: high, low: low };
+  }
+
+  /* Open equal to the previous close, so there is no overnight gap at all.
+     Same seeding argument as ohlcFromCloses: the intraday noise shares the
+     stream that drove the returns. */
+  function noGapOHLC(close, seed, sd){
+    sd = (sd === undefined) ? 0.004 : sd;
+    var z = normalGen(seed);
+    var n = close.length, open = new Array(n), high = new Array(n), low = new Array(n);
+    open[0] = close[0];
+    for (var i = 1; i < n; i++) open[i] = close[i - 1];
+    for (var j = 0; j < n; j++){
+      var e = Math.abs(sd * z());
+      high[j] = Math.max(open[j], close[j]) * Math.exp(e);
+      low[j] = Math.min(open[j], close[j]) * Math.exp(-e);
+    }
+    return { open: open, high: high, low: low };
+  }
+
+  /* Closed form, no PRNG. Must match gen_golden.py exactly. */
+  function goldenPath(n){
+    n = n || 260;
+    var close = new Array(n), open = new Array(n), high = new Array(n), low = new Array(n);
+    for (var i = 0; i < n; i++){
+      close[i] = 100.0 * Math.exp(0.0004 * i + 0.02 * Math.sin(i / 3.0) + 0.013 * Math.cos(i / 7.0));
+      open[i] = close[i] * Math.exp(0.004 * Math.sin(i / 5.0));
+      high[i] = Math.max(open[i], close[i]) * Math.exp(0.006 + 0.003 * Math.abs(Math.sin(i / 11.0)));
+      low[i] = Math.min(open[i], close[i]) * Math.exp(-0.006 - 0.003 * Math.abs(Math.cos(i / 13.0)));
+    }
+    return { open: open, high: high, low: low, close: close, n: n };
+  }
+
+  /* A plausible-looking synthetic stock for the demo button: a vol cycle so
+     the HAR blend has something to chew on, modest overnight gaps, and an
+     intraday range wide enough that the four estimators roughly agree. */
+  function demoSeries(n, sigma, seed, s0){
+    n = n || 260; sigma = sigma || 0.32; seed = seed || 20260101; s0 = s0 || 180;
+    var zr = normalGen(seed), zg = normalGen(seed + 11), zh = normalGen(seed + 22), zl = normalGen(seed + 33);
+    var dt = 1.0 / A, daily = sigma * Math.sqrt(dt);
+    var close = new Array(n), open = new Array(n), high = new Array(n), low = new Array(n), cyc = new Array(n);
+    var acc = 0;
+    for (var i = 0; i < n; i++){
+      cyc[i] = 1.0 + 0.35 * Math.sin(i / 38.0);
+      acc += (-0.5 * sigma * sigma * dt) + daily * zr() * cyc[i];
+      close[i] = s0 * Math.exp(acc);
+    }
+    for (var j = 0; j < n; j++){
+      var prev = j === 0 ? close[0] : close[j - 1];
+      open[j] = prev * Math.exp(0.25 * daily * zg() * cyc[j]);
+      high[j] = Math.max(open[j], close[j]) * Math.exp(Math.abs(0.40 * daily * zh()) * cyc[j]);
+      low[j] = Math.min(open[j], close[j]) * Math.exp(-Math.abs(0.40 * daily * zl()) * cyc[j]);
+    }
+    return { open: open, high: high, low: low, close: close, n: n };
+  }
+
+  function toCSV(series){
+    var lines = ["Date,Open,High,Low,Close"];
+    var d = new Date(Date.UTC(2025, 0, 2));
+    for (var i = 0; i < series.n; i++){
+      while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);
+      lines.push(d.toISOString().slice(0, 10) + "," +
+        series.open[i].toFixed(2) + "," + series.high[i].toFixed(2) + "," +
+        series.low[i].toFixed(2) + "," + series.close[i].toFixed(2));
+      d.setUTCDate(d.getUTCDate() + 1);
+    }
+    return lines.join("\n") + "\n";
+  }
+
+  return Object.freeze({
+    mulberry32: mulberry32, normalGen: normalGen,
+    gbmCloses: gbmCloses, ohlcFromCloses: ohlcFromCloses, noGapOHLC: noGapOHLC,
+    goldenPath: goldenPath, demoSeries: demoSeries, toCSV: toCSV
+  });
+}
+/* ===========================================================================
+   VIEW HELPERS -- formatting and hand-drawn SVG charts
+   ---------------------------------------------------------------------------
+   Presentation only. No number is computed here; everything arrives already
+   calculated from CORE or ENGINE. Charts are drawn by hand because the page
+   must work from file:// with no CDN.
+   =========================================================================== */
+function buildView(){
+
+  function esc(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function na(what){
+    return '<span class="na" title="' + esc(what ? "missing: " + what : "no value") + '">N/A</span>';
+  }
+  function pct(x, dp){ return (x * 100).toFixed(dp === undefined ? 1 : dp) + "%"; }
+  function num(x, dp){ return Number(x).toFixed(dp === undefined ? 2 : dp); }
+  function signed(x, dp){
+    var v = Number(x);
+    return (v >= 0 ? "+" : "") + v.toFixed(dp === undefined ? 2 : dp);
+  }
+  function money(x){
+    return (x < 0 ? "-" : "") + "$" + Math.abs(x).toLocaleString(undefined, {
+      minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  }
+  /* Marks a value whose definition depends on a tunable number. */
+  function heur(title){
+    return '<span class="heur" title="' + esc(title) + '">&#126;</span>';
+  }
+
+  /* ---------------------------- bar chart ------------------------------- */
+  /* items: [{label, value, note, kind}] where kind tints the bar.
+     `markers`: [{value, label}] drawn as vertical reference lines. */
+  function barChart(items, markers, fmt){
+    fmt = fmt || function(v){ return pct(v, 1); };
+    var W = 720, LAB = 148, PAD_R = 76, rowH = 26, top = 8;
+    var H = top + items.length * rowH + 26;
+    var x0 = LAB, x1 = W - PAD_R;
+    var all = items.map(function(d){ return d.value; })
+      .concat((markers || []).map(function(m){ return m.value; }));
+    var max = Math.max.apply(null, all.concat([0])) * 1.12 || 1;
+
+    var sx = function(v){ return x0 + (v / max) * (x1 - x0); };
+    var parts = [];
+    parts.push('<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Volatility estimators">');
+
+    var ticks = 4;
+    for (var t = 0; t <= ticks; t++){
+      var tv = max * t / ticks, tx = sx(tv);
+      parts.push('<line class="grid" x1="' + tx.toFixed(1) + '" y1="' + top + '" x2="' + tx.toFixed(1) +
+                 '" y2="' + (top + items.length * rowH) + '"/>');
+      parts.push('<text x="' + tx.toFixed(1) + '" y="' + (H - 8) + '" font-size="10" text-anchor="middle">' +
+                 esc(fmt(tv)) + '</text>');
+    }
+
+    items.forEach(function(d, i){
+      var y = top + i * rowH, bh = 14, by = y + (rowH - bh) / 2;
+      var fill = d.kind === "iv" ? "var(--accent)" :
+                 d.kind === "down" ? "var(--fail)" :
+                 d.kind === "up" ? "var(--pass)" :
+                 d.kind === "forecast" ? "var(--warn)" : "var(--border-strong)";
+      parts.push('<text x="' + (LAB - 8) + '" y="' + (y + rowH / 2 + 3.5) + '" font-size="11" text-anchor="end">' +
+                 esc(d.label) + '</text>');
+      parts.push('<rect x="' + x0 + '" y="' + by + '" width="' + Math.max(1, sx(d.value) - x0).toFixed(1) +
+                 '" height="' + bh + '" rx="3" fill="' + fill + '"' +
+                 (d.dashed ? ' fill-opacity=".45"' : '') + '/>');
+      parts.push('<text class="val" x="' + (sx(d.value) + 6).toFixed(1) + '" y="' + (y + rowH / 2 + 3.5) +
+                 '" font-size="11">' + esc(fmt(d.value)) + '</text>');
+    });
+
+    (markers || []).forEach(function(m){
+      var mx = sx(m.value);
+      parts.push('<line x1="' + mx.toFixed(1) + '" y1="' + (top - 2) + '" x2="' + mx.toFixed(1) + '" y2="' +
+                 (top + items.length * rowH + 2) + '" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="4 3"/>');
+      parts.push('<text x="' + (mx + 4).toFixed(1) + '" y="' + (top + 8) + '" font-size="10" fill="var(--accent)">' +
+                 esc(m.label) + '</text>');
+    });
+
+    parts.push('<line class="axis" x1="' + x0 + '" y1="' + top + '" x2="' + x0 + '" y2="' +
+               (top + items.length * rowH) + '"/>');
+    parts.push("</svg>");
+    return parts.join("");
+  }
+
+  /* --------------------- semivariance, two sides ------------------------ */
+  function semivolChart(semi, legs, ivPut, ivCall, scale){
+    var W = 720, H = 188, LAB = 92, PAD_R = 80;
+    var x0 = LAB, x1 = W - PAD_R;
+    var vals = [semi.down, semi.up, legs.rvDownScaled, legs.rvUpScaled, ivPut, ivCall]
+      .filter(function(v){ return v !== null && v !== undefined && isFinite(v); });
+    var max = Math.max.apply(null, vals) * 1.15 || 1;
+    var sx = function(v){ return x0 + (v / max) * (x1 - x0); };
+    var p = [];
+    p.push('<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Downside and upside semivariance against implied vol">');
+
+    for (var t = 0; t <= 4; t++){
+      var tx = sx(max * t / 4);
+      p.push('<line class="grid" x1="' + tx.toFixed(1) + '" y1="14" x2="' + tx.toFixed(1) + '" y2="152"/>');
+      p.push('<text x="' + tx.toFixed(1) + '" y="' + (H - 6) + '" font-size="10" text-anchor="middle">' +
+             esc(pct(max * t / 4, 0)) + '</text>');
+    }
+
+    var groups = [
+      { y: 22, name: "Downside", raw: semi.down, scaled: legs.rvDownScaled, iv: ivPut,
+        ivName: "IV put", kind: "down", n: semi.nDown },
+      { y: 92, name: "Upside", raw: semi.up, scaled: legs.rvUpScaled, iv: ivCall,
+        ivName: "IV call", kind: "up", n: semi.nUp }
+    ];
+
+    groups.forEach(function(g){
+      p.push('<text x="' + (LAB - 8) + '" y="' + (g.y + 16) + '" font-size="11" text-anchor="end" font-weight="600">' +
+             esc(g.name) + '</text>');
+      p.push('<text x="' + (LAB - 8) + '" y="' + (g.y + 30) + '" font-size="9" text-anchor="end">' +
+             g.n + ' days</text>');
+      p.push('<rect x="' + x0 + '" y="' + g.y + '" width="' + Math.max(1, sx(g.raw) - x0).toFixed(1) +
+             '" height="13" rx="3" fill="' + (g.kind === "down" ? "var(--fail)" : "var(--pass)") + '" fill-opacity=".38"/>');
+      p.push('<text class="val" x="' + (sx(g.raw) + 6).toFixed(1) + '" y="' + (g.y + 10) + '" font-size="10">' +
+             esc(pct(g.raw, 1)) + ' raw</text>');
+      p.push('<rect x="' + x0 + '" y="' + (g.y + 18) + '" width="' + Math.max(1, sx(g.scaled) - x0).toFixed(1) +
+             '" height="13" rx="3" fill="' + (g.kind === "down" ? "var(--fail)" : "var(--pass)") + '"/>');
+      p.push('<text class="val" x="' + (sx(g.scaled) + 6).toFixed(1) + '" y="' + (g.y + 28) + '" font-size="10">' +
+             esc(pct(g.scaled, 1)) + ' &times;' + num(scale, 2) + '</text>');
+      if (g.iv !== null && g.iv !== undefined && isFinite(g.iv)){
+        var ix = sx(g.iv);
+        p.push('<line x1="' + ix.toFixed(1) + '" y1="' + (g.y - 5) + '" x2="' + ix.toFixed(1) + '" y2="' +
+               (g.y + 38) + '" stroke="var(--accent)" stroke-width="2"/>');
+        p.push('<text x="' + (ix + 4).toFixed(1) + '" y="' + (g.y + 48) + '" font-size="10" fill="var(--accent)">' +
+               esc(g.ivName + " " + pct(g.iv, 1)) + '</text>');
+      }
+    });
+
+    p.push('<line class="axis" x1="' + x0 + '" y1="14" x2="' + x0 + '" y2="152"/>');
+    p.push("</svg>");
+    return p.join("");
+  }
+
+  /* --------------------------- score waterfall -------------------------- */
+  function scoreChart(detail, bands, maxScore){
+    var W = 720, H = 190, PAD_L = 34, PAD_B = 46, top = 12;
+    var n = detail.length;
+    var colW = (W - PAD_L - 14) / (n + 1);
+    var maxY = Math.max(maxScore, 10);
+    var sy = function(v){ return top + (1 - v / maxY) * (H - PAD_B - top); };
+    var p = [];
+    p.push('<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Score waterfall">');
+
+    for (var v = 0; v <= maxY; v += 2){
+      p.push('<line class="grid" x1="' + PAD_L + '" y1="' + sy(v).toFixed(1) + '" x2="' + (W - 8) + '" y2="' + sy(v).toFixed(1) + '"/>');
+      p.push('<text x="' + (PAD_L - 6) + '" y="' + (sy(v) + 3.5).toFixed(1) + '" font-size="10" text-anchor="end">' + v + '</text>');
+    }
+    [["ENTER", bands.enter, "var(--pass)"], ["HALF", bands.half, "var(--warn)"], ["WAIT", bands.wait, "var(--unknown)"]]
+      .forEach(function(b){
+        p.push('<line x1="' + PAD_L + '" y1="' + sy(b[1]).toFixed(1) + '" x2="' + (W - 8) + '" y2="' + sy(b[1]).toFixed(1) +
+               '" stroke="' + b[2] + '" stroke-width="1" stroke-dasharray="5 4"/>');
+        p.push('<text x="' + (W - 10) + '" y="' + (sy(b[1]) - 4).toFixed(1) + '" font-size="9" text-anchor="end" fill="' + b[2] + '">' +
+               b[0] + ' ' + b[1] + '</text>');
+      });
+
+    var run = 0;
+    detail.forEach(function(d, i){
+      var x = PAD_L + 6 + i * colW, bw = Math.max(10, colW - 10);
+      var yTop = sy(run + Math.max(d.pts, 0)), yBot = sy(run + Math.min(d.pts, 0));
+      var h = Math.max(d.pts === 0 ? 2 : 3, Math.abs(yBot - yTop));
+      p.push('<rect x="' + x.toFixed(1) + '" y="' + yTop.toFixed(1) + '" width="' + bw.toFixed(1) +
+             '" height="' + h.toFixed(1) + '" rx="2" fill="' +
+             (d.pts > 0 ? "var(--pass)" : "var(--border-strong)") + '"' + (d.pts === 0 ? ' fill-opacity=".5"' : '') + '/>');
+      p.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (yTop - 4).toFixed(1) +
+             '" font-size="10" text-anchor="middle" class="val">' + (d.pts > 0 ? "+" + d.pts : d.pts) + '</text>');
+      p.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (H - PAD_B + 14) +
+             '" font-size="9" text-anchor="middle">' + esc(["VRP", "IVP", "Leg", "Trend", "Event", "Liq"][i] || ("#" + (i + 1))) + '</text>');
+      run += d.pts;
+    });
+
+    var tx = PAD_L + 6 + n * colW, tbw = Math.max(10, colW - 10);
+    p.push('<rect x="' + tx.toFixed(1) + '" y="' + sy(run).toFixed(1) + '" width="' + tbw.toFixed(1) +
+           '" height="' + (sy(0) - sy(run)).toFixed(1) + '" rx="2" fill="var(--accent)"/>');
+    p.push('<text x="' + (tx + tbw / 2).toFixed(1) + '" y="' + (sy(run) - 4).toFixed(1) +
+           '" font-size="11" text-anchor="middle" class="val" font-weight="700">' + run + '</text>');
+    p.push('<text x="' + (tx + tbw / 2).toFixed(1) + '" y="' + (H - PAD_B + 14) +
+           '" font-size="9" text-anchor="middle" font-weight="600">Total</text>');
+
+    p.push('<line class="axis" x1="' + PAD_L + '" y1="' + sy(0).toFixed(1) + '" x2="' + (W - 8) + '" y2="' + sy(0).toFixed(1) + '"/>');
+    p.push("</svg>");
+    return p.join("");
+  }
+
+  return Object.freeze({
+    esc: esc, na: na, pct: pct, num: num, signed: signed, money: money, heur: heur,
+    barChart: barChart, semivolChart: semivolChart, scoreChart: scoreChart
+  });
+}
+/* ===========================================================================
+   APP -- wiring and rendering. Reads inputs, calls the layers below, paints.
+   No analytical number is produced in this block.
+   =========================================================================== */
+var CORE = buildCore();
+var CONFIG = buildConfig();
+var DATAIO = buildDataIO();
+var ENGINE = buildEngine(CORE);
+var SYNTH = buildSynth();
+var V = buildView();
+
+var state = { cfg: CONFIG.defaults(), data: null, dataSource: "", snapshot: null };
+
+function $(id){ return document.getElementById(id); }
+function sval(id){ var e = $(id); return e ? String(e.value).trim() : ""; }
+function nval(id){
+  var s = sval(id);
+  if (s === "") return null;
+  var v = Number(s);
+  return isFinite(v) ? v : null;
+}
+function bval(id){ var e = $(id); return !!(e && e.checked); }
+function show(id, on){ var e = $(id); if (e) e.style.display = on ? "" : "none"; }
+
+/* ------------------------------- data --------------------------------- */
+function setData(text, source){
+  try {
+    state.data = DATAIO.loadOHLC(text);
+    state.dataSource = source;
+    var d = state.data;
+    var bits = [d.rows + " rows", d.hasOhlc ? "full OHLC" : "close only"];
+    if (d.dates.length && d.dates[0]) bits.push(d.dates[0] + " to " + d.dates[d.dates.length - 1]);
+    $("data-status").innerHTML = "<b>" + V.esc(source) + "</b><br>" + V.esc(bits.join(" &middot; ").replace(/&middot;/g, "·"));
+  } catch (e){
+    state.data = null;
+    state.dataSource = "";
+    $("data-status").innerHTML = '<span style="color:var(--fail)">' + V.esc(e.message) + "</span>";
+  }
+  analyze();
+}
+
+/* --------------------------- the pipeline ------------------------------ */
+function analyze(){
+  var cfg = state.cfg;
+  var msgs = [];                   // {level, text}
+  var snap = { generatedAt: new Date().toISOString(), config: JSON.parse(JSON.stringify(cfg)) };
+
+  var cfgIssues = CONFIG.validate(cfg);
+  cfgIssues.forEach(function(t){ msgs.push({ level: "err", text: "Calibration problem: " + t }); });
+
+  /* --- implied vol inputs --- */
+  var iv = {}, ivNotes = [];
+  var ivFields = [["iv30", "in-iv30", "IV30"], ["put25", "in-ivput25", "IV d25 put"],
+                  ["call25", "in-ivcall25", "IV d25 call"], ["m1", "in-ivm1", "IV M1"],
+                  ["m2", "in-ivm2", "IV M2"], ["lo", "in-ivmin", "IV 1Y low"], ["hi", "in-ivmax", "IV 1Y high"]];
+  for (var i = 0; i < ivFields.length; i++){
+    try {
+      var r = DATAIO.normalizeIV(nval(ivFields[i][1]), ivFields[i][2]);
+      iv[ivFields[i][0]] = r.value;
+      ivNotes = ivNotes.concat(r.notes);
+    } catch (e){
+      iv[ivFields[i][0]] = null;
+      msgs.push({ level: "err", text: e.message });
+    }
+  }
+  ivNotes.forEach(function(t){ msgs.push({ level: "note", text: t }); });
+
+  var dte = nval("in-dte");
+  var missing = [];
+  if (!state.data) missing.push("price history");
+  if (iv.iv30 === null) missing.push("IV30");
+  if (dte === null) missing.push("DTE");
+
+  if (missing.length){
+    renderInsufficient(missing, msgs);
+    return;
+  }
+
+  var d = state.data, est = {}, blockers = [];
+
+  /* --- realized vol --- */
+  var ccWindows = [20, 60, 120];
+  ccWindows.forEach(function(w){
+    try { est["cc" + w] = CORE.rvCloseToClose(d.close, w); } catch (e){ est["cc" + w] = null; }
+  });
+
+  var estWindow = null;
+  if (d.hasOhlc){
+    [120, 60, 20].forEach(function(w){
+      if (estWindow === null && d.rows >= w + 1) estWindow = w;
+    });
+  }
+  if (estWindow !== null){
+    ["park", "gk", "yz"].forEach(function(k){ est[k] = null; });
+    try { est.park = CORE.rvParkinson(d.high, d.low, estWindow); } catch (e){ msgs.push({ level: "warn", text: "Parkinson: " + e.message }); }
+    try { est.gk = CORE.rvGarmanKlass(d.open, d.high, d.low, d.close, estWindow); } catch (e){ msgs.push({ level: "warn", text: "Garman-Klass: " + e.message }); }
+    try { est.yz = CORE.rvYangZhang(d.open, d.high, d.low, d.close, estWindow); } catch (e){ msgs.push({ level: "warn", text: "Yang-Zhang: " + e.message }); }
+  }
+  est.window = estWindow;
+  est.gapRatio = null;
+  if (est.yz !== null && est.yz !== undefined && est["cc" + estWindow]){
+    try { est.gapRatio = CORE.gapRatio(est.yz, est["cc" + estWindow]); } catch (e){ /* reported below */ }
+  }
+
+  /* --- E[RV] and VRP --- */
+  var forecast = null, vrp = null;
+  try {
+    forecast = CORE.forecastRV(d.close, cfg.harWeights);
+  } catch (e){ blockers.push(e.message); }
+  if (forecast){
+    try { vrp = CORE.computeVRP(iv.iv30, forecast.value); } catch (e){ blockers.push(e.message); }
+  }
+  if (!vrp){
+    blockers.forEach(function(t){ msgs.push({ level: "err", text: t }); });
+    renderInsufficient(["a usable E[RV] forecast"], msgs);
+    return;
+  }
+  if (forecast.renormalized){
+    msgs.push({ level: "warn", text: "HAR weights were renormalized onto windows " +
+      forecast.windowsUsed.join("/") + " because the history is short. E[RV] leans on the shorter window more than intended." });
+  }
+
+  /* --- semivariance --- */
+  var semiWindow = Math.min(60, d.rows - 1);
+  var semi = null;
+  if (semiWindow >= 20){
+    try { semi = CORE.semivariance(d.close, semiWindow); }
+    catch (e){ msgs.push({ level: "err", text: "Semivariance: " + e.message }); }
+  } else {
+    msgs.push({ level: "warn", text: "Not enough rows for a semivariance window of at least 20 days." });
+  }
+
+  /* --- event --- */
+  var impliedMovePct = nval("in-imove");
+  var straddle = nval("in-straddle"), spot = nval("in-spot");
+  var straddleDerived = null;
+  if (impliedMovePct === null && straddle !== null && spot !== null && spot > 0){
+    straddleDerived = straddle * cfg.straddleToMove / spot * 100;
+    impliedMovePct = straddleDerived;
+    msgs.push({ level: "note", text: "Implied move derived from the straddle: " + V.num(straddle, 2) +
+      " x " + cfg.straddleToMove + " / " + V.num(spot, 2) + " = " + V.num(straddleDerived, 2) + "%" });
+  }
+  var event = null, eventError = null;
+  if (impliedMovePct !== null){
+    try { event = CORE.decomposeEvent(iv.iv30, dte, impliedMovePct / 100); }
+    catch (e){
+      eventError = e.message;
+      msgs.push({ level: "err", text: e.message });
+    }
+  }
+  /* An implied earnings move only belongs in the IV of a contract that spans
+     the event. Stripping it out of an expiry that ends first understates the
+     diffusive IV and makes every ratio below look worse than it is. The
+     decomposition still runs, because the reference engine decomposes whenever
+     J is supplied, but the mismatch has to be said out loud. */
+  var eDaysForCheck = nval("in-edays");
+  if (event && eDaysForCheck !== null && eDaysForCheck > dte){
+    msgs.push({ level: "warn", text: "Earnings are " + eDaysForCheck + " days out but this expiry is only " +
+      dte + " DTE, so the event falls outside the contract. An implied earnings move was still supplied and " +
+      "has been stripped out, which understates the diffusive IV. Either clear the implied move, or analyse " +
+      "an expiry that actually spans the event." });
+  }
+
+  /* --- earnings VRP --- */
+  var histMoves = null, earn = null;
+  try { histMoves = DATAIO.parseNumberList(sval("in-hmoves")); }
+  catch (e){ msgs.push({ level: "err", text: e.message }); }
+  if (histMoves && impliedMovePct !== null){
+    try { earn = CORE.earningsVRP(impliedMovePct, histMoves); }
+    catch (e){ msgs.push({ level: "err", text: e.message }); }
+  }
+
+  /* --- IV metrics --- */
+  var ivr = null;
+  if (iv.lo !== null && iv.hi !== null){
+    try { ivr = CORE.ivRank(iv.iv30, iv.lo, iv.hi); }
+    catch (e){ msgs.push({ level: "warn", text: e.message }); }
+  }
+  var ts = null;
+  if (iv.m1 !== null && iv.m2 !== null){
+    try { ts = CORE.termStructure(iv.m1, iv.m2); }
+    catch (e){ msgs.push({ level: "warn", text: e.message }); }
+  }
+
+  /* --- decision --- */
+  var trendSel = sval("in-trend");
+  var decision = ENGINE.decide({
+    cfg: cfg, vrp: vrp, dte: dte, event: event, semi: semi,
+    ivPut25: iv.put25, ivCall25: iv.call25,
+    ivp: nval("in-ivp"), termStruct: ts, termStructExplained: bval("in-ts-explained"),
+    earningsDays: nval("in-edays"), tradingTheEvent: bval("in-event-intent"),
+    spreadPct: nval("in-spread"), openInterest: nval("in-oi"),
+    rvYz: (est.yz === undefined ? null : est.yz),
+    requestedSide: sval("in-side"),
+    trendAligned: trendSel === "yes" ? true : (trendSel === "no" ? false : null)
+  });
+
+  if (eventError){
+    decision.caveats.push("The event decomposition failed, so the effective ratio falls back to the raw VRP. " +
+      "Treat this verdict as unverified until the implied move and IV are consistent.");
+  }
+
+  var ctx = {
+    cfg: cfg, data: d, est: est, forecast: forecast, vrp: vrp, semi: semi, event: event,
+    eventError: eventError, earn: earn, iv: iv, ivr: ivr, ts: ts, dte: dte, spot: spot,
+    impliedMovePct: impliedMovePct, histMoves: histMoves, decision: decision, msgs: msgs,
+    delta: nval("in-delta"), portfolio: nval("in-portfolio"),
+    width: nval("in-width"), credit: nval("in-credit"), cash100: bval("in-cash100")
+  };
+
+  state.snapshot = buildSnapshot(ctx, snap);
+  render(ctx);
+}
+
+/* ---------------------------- rendering -------------------------------- */
+function renderInsufficient(missing, msgs){
+  var b = $("banner");
+  b.setAttribute("data-v", "INSUFFICIENT DATA");
+  b.innerHTML = '<div class="verdict">Insufficient data</div>' +
+    '<span class="pill unknown">needs input</span>' +
+    '<div class="why">Still missing: <b>' + V.esc(missing.join(", ")) + "</b>.</div>";
+  renderMessages(msgs);
+  ["card-core", "card-est", "card-side", "card-event", "card-gates", "card-score", "card-plan", "card-conf"]
+    .forEach(function(id){ show(id, false); });
+  state.snapshot = null;
+}
+
+function renderMessages(msgs){
+  var html = msgs.map(function(m){
+    return '<div class="msg ' + m.level + '">' + V.esc(m.text) + "</div>";
+  }).join("");
+  $("messages").innerHTML = html;
+}
+
+function render(ctx){
+  ["card-core", "card-est", "card-side", "card-event", "card-gates", "card-score", "card-plan", "card-conf"]
+    .forEach(function(id){ show(id, true); });
+
+  var d = ctx.decision;
+
+  /* banner */
+  var b = $("banner");
+  b.setAttribute("data-v", d.verdict);
+  var sideTxt = d.side === "NEITHER" ? "" : '<span class="pill accent">' + V.esc(d.side.replace("_", " ")) + "</span>";
+  b.innerHTML =
+    '<div class="verdict">' + V.esc(d.verdict) + "</div>" + sideTxt +
+    '<span class="pill">score ' + d.score + "/" + d.maxScore + "</span>" +
+    '<span class="pill ' + (d.confidence === "High" ? "pass" : d.confidence === "Medium" ? "warn" : "unknown") +
+      '">confidence ' + V.esc(d.confidence) + "</span>" +
+    '<div class="why">' + V.esc(d.reason) + "</div>";
+
+  /* messages: engine warnings and caveats join the input notes */
+  var all = ctx.msgs.slice();
+  d.warnings.forEach(function(t){
+    all.push({ level: "warn", text: t, loud: t.indexOf("Clean VRP is negative") >= 0 });
+  });
+  d.caveats.forEach(function(t){ all.push({ level: "note", text: t }); });
+  $("messages").innerHTML = all.map(function(m){
+    return '<div class="msg ' + m.level + (m.loud ? " loud" : "") + '">' +
+      (m.loud ? "<b>Premium is all event risk.</b> " : "") + V.esc(m.text) + "</div>";
+  }).join("");
+
+  renderCore(ctx);
+  renderEstimators(ctx);
+  renderSide(ctx);
+  renderEvent(ctx);
+  renderGates(ctx);
+  renderScore(ctx);
+  renderPlan(ctx);
+  renderConfidence(ctx);
+}
+
+function renderCore(ctx){
+  var v = ctx.vrp, d = ctx.decision, cfg = ctx.cfg;
+  $("core-src").className = "pill " + (d.effectiveRatioSource === "clean" ? "accent" : "");
+  $("core-src").textContent = "effective ratio: " + d.effectiveRatioSource;
+
+  function metric(k, val, note, cls, headline){
+    return '<div class="metric' + (headline ? " head" : "") + '"><div class="k">' + k + "</div>" +
+      '<div class="v ' + (cls || "") + '">' + val + "</div>" +
+      (note ? '<div class="n">' + note + "</div>" : "") + "</div>";
+  }
+  var m = [];
+  m.push(metric("VRP variance (IV&sup2; &minus; RV&sup2;)", V.num(v.variance, 4),
+    "the number a delta hedge actually collects", v.variance > 0 ? "pos" : "neg", true));
+  m.push(metric("Effective ratio", V.num(d.effectiveRatio, 3),
+    d.effectiveRatioSource === "clean" ? "event stripped out" : "raw, no event supplied",
+    d.effectiveRatio >= 1 ? "pos" : "neg"));
+  m.push(metric("VRP vol points", V.signed(v.volPoints, 2), "IV &minus; E[RV], for reading only",
+    v.volPoints > 0 ? "pos" : "neg"));
+  m.push(metric("IV30", V.pct(v.iv, 1), "input"));
+  m.push(metric("E[RV30]", V.pct(v.rv, 1),
+    "HAR blend " + ctx.forecast.windowsUsed.map(function(w){
+      return w + "d&times;" + V.num(ctx.forecast.weightsEffective[w], 2); }).join(" ") + " " +
+    V.heur("The HAR weights are a choice, not a canonical value. Tune them in Calibration.")));
+  m.push(metric("Raw VRP ratio", V.num(v.ratio, 3), "IV / E[RV] before any event adjustment",
+    v.ratio >= 1 ? "pos" : "neg"));
+  m.push(metric("IV rank", ctx.ivr === null ? V.na("IV 1Y high/low") : V.num(ctx.ivr, 0),
+    "fragile to one outlier"));
+  m.push(metric("IV percentile", nval("in-ivp") === null ? V.na("IV percentile") : V.num(nval("in-ivp"), 0),
+    "more robust than IV rank"));
+  m.push(metric("Term structure", ctx.ts === null ? V.na("IV M1 and M2") : V.num(ctx.ts, 3),
+    ctx.ts === null ? "" : (ctx.ts > cfg.tsBackwardation ? "backwardation" : "contango")));
+  $("core-metrics").innerHTML = m.join("");
+
+  var note = "Self check: VRP_var / (2&middot;IV) = " + V.num(v.variance / (2 * v.iv) * 100, 2) +
+    " vs VRP_vol " + V.num(v.volPoints, 2) + " (first-order agreement, residual " +
+    V.num(v.selfcheckResidual, 3) + ").";
+  $("core-note").innerHTML = note;
+}
+
+function renderEstimators(ctx){
+  var est = ctx.est, cfg = ctx.cfg, f = ctx.forecast, v = ctx.vrp;
+  var items = [{ label: "IV30 (implied)", value: v.iv, kind: "iv" },
+               { label: "E[RV30] forecast", value: f.value, kind: "forecast" }];
+  [20, 60, 120].forEach(function(w){
+    if (est["cc" + w] !== null && est["cc" + w] !== undefined)
+      items.push({ label: "RV close-to-close " + w + "d", value: est["cc" + w] });
+  });
+  if (est.park) items.push({ label: "Parkinson " + est.window + "d", value: est.park });
+  if (est.gk) items.push({ label: "Garman-Klass " + est.window + "d", value: est.gk });
+  if (est.yz) items.push({ label: "Yang-Zhang " + est.window + "d", value: est.yz });
+  $("est-chart").innerHTML = V.barChart(items, [], function(x){ return V.pct(x, 0); });
+
+  var gp = $("gap-pill");
+  if (est.gapRatio === null){
+    gp.className = "pill unknown";
+    gp.textContent = "gap ratio N/A";
+  } else {
+    var hot = est.gapRatio > cfg.gapRatioWarn;
+    gp.className = "pill " + (hot ? "fail" : "pass");
+    gp.textContent = "gap ratio " + V.num(est.gapRatio, 2) + (hot ? " (above " + cfg.gapRatioWarn + ")" : "");
+  }
+
+  var rows = [["Close-to-close 20d", est.cc20, "Not demeaned: over short windows drift is dwarfed by noise."],
+              ["Close-to-close 60d", est.cc60, ""],
+              ["Close-to-close 120d", est.cc120, ""],
+              ["Parkinson", est.park, "Blind to overnight gaps by construction."],
+              ["Garman-Klass", est.gk, "Also blind to overnight moves."],
+              ["Yang-Zhang", est.yz, "Drift independent and sees the gap."]];
+  var html = "<thead><tr><th>Estimator</th><th>Annualized</th><th>vs E[RV]</th><th>Note</th></tr></thead><tbody>";
+  rows.forEach(function(r){
+    var val = (r[1] === null || r[1] === undefined) ? V.na(ctx.data.hasOhlc ? "more history" : "Open/High/Low columns") : V.pct(r[1], 1);
+    var rel = (r[1] === null || r[1] === undefined) ? "" : V.num(r[1] / ctx.forecast.value, 2) + "x";
+    html += "<tr><td>" + r[0] + '</td><td class="num">' + val + '</td><td class="num">' + rel +
+      '</td><td style="text-align:left;color:var(--text-dim);font-size:.76rem">' + r[2] + "</td></tr>";
+  });
+  html += "</tbody>";
+  $("est-table").innerHTML = html;
+}
+
+function renderSide(ctx){
+  var d = ctx.decision, cfg = ctx.cfg;
+  var pill = $("side-pill");
+  if (!d.legs){
+    pill.className = "pill unknown";
+    pill.textContent = "no semivariance";
+    $("legs").innerHTML = '<div class="msg note">Daily closes are required to split realized vol into an up side and a down side.</div>';
+    $("semi-chart").innerHTML = "";
+    $("skew-note").innerHTML = "";
+    return;
+  }
+  var L = d.legs;
+  pill.className = "pill " + (L.usedAtmFallback ? "warn" : "pass");
+  pill.textContent = L.usedAtmFallback ? "ATM fallback" : "delta-25 IV";
+
+  function leg(name, side, ivUsed, rvScaled, vrpPts){
+    var sel = d.side === side;
+    return '<div class="leg' + (sel ? " sel" : "") + '">' +
+      '<div class="t"><strong>' + name + "</strong>" +
+      (sel ? '<span class="pill accent">chosen</span>' : "") + "</div>" +
+      "<dl>" +
+      "<dt>IV used</dt><dd>" + V.pct(ivUsed, 1) + "</dd>" +
+      "<dt>Realized semivol &times; scale</dt><dd>" + V.pct(rvScaled, 1) + "</dd>" +
+      "<dt>Leg VRP</dt><dd style=\"color:var(--" + (vrpPts > 0 ? "pass" : "fail") + ")\">" +
+        V.signed(vrpPts, 2) + " pts</dd>" +
+      "</dl></div>";
+  }
+  var ivPut = ctx.iv.put25 === null ? ctx.vrp.iv : ctx.iv.put25;
+  var ivCall = ctx.iv.call25 === null ? ctx.vrp.iv : ctx.iv.call25;
+  $("legs").innerHTML =
+    leg("Short put", "SHORT_PUT", ivPut, L.rvDownScaled, L.vrpPutPts) +
+    leg("Short call", "SHORT_CALL", ivCall, L.rvUpScaled, L.vrpCallPts);
+
+  $("semi-chart").innerHTML = V.semivolChart(ctx.semi, L, ivPut, ivCall, cfg.semivolScale);
+
+  var bits = [];
+  bits.push("Realized skew (down/up) " + (L.realizedSkew === null ? V.na() : V.num(L.realizedSkew, 3)));
+  bits.push("Implied skew (put/call) " + (L.impliedSkew === null ? V.na() : V.num(L.impliedSkew, 3)));
+  bits.push("Skew gap " + (L.skewGap === null ? V.na() : V.num(L.skewGap, 3)) +
+    " " + V.heur("Above 1 means the option market prices the downside richer than the stock has actually moved. Part of that is a crash risk premium that belongs there."));
+  bits.push("Semivol scaled by " + V.num(cfg.semivolScale, 4) + " " +
+    V.heur("sqrt(2) makes a one-sided vol comparable with a full vol when returns are symmetric. A calibration choice, not a no-arbitrage result."));
+  $("skew-note").innerHTML = bits.join(" &nbsp;&middot;&nbsp; ");
+}
+
+function renderEvent(ctx){
+  var body = $("event-body"), cfg = ctx.cfg;
+  var html = "";
+  if (ctx.eventError){
+    html += '<div class="msg err loud"><b>Event decomposition refused.</b> ' + V.esc(ctx.eventError) + "</div>";
+  }
+  if (!ctx.event && !ctx.earn){
+    html += '<div class="msg note">Enter an implied earnings move (or an ATM straddle price and the spot) to split IV into its diffusive and event parts. Without it the ratio above is raw IV over E[RV], which flatters any name with earnings inside the window.</div>';
+    body.innerHTML = html;
+    return;
+  }
+  if (ctx.event){
+    var e = ctx.event, raw = ctx.vrp.ratio, clean = e.ivDiffusive / ctx.vrp.rv;
+    html += '<div class="metrics">' +
+      '<div class="metric"><div class="k">IV total</div><div class="v">' + V.pct(e.ivTotal, 1) + '</div><div class="n">as quoted</div></div>' +
+      '<div class="metric head"><div class="k">IV diffusive</div><div class="v">' + V.pct(e.ivDiffusive, 1) + '</div><div class="n">what a hedge can collect</div></div>' +
+      '<div class="metric"><div class="k">Implied jump J</div><div class="v">' + V.pct(e.jump, 1) + '</div><div class="n">one-day move, does not scale with time</div></div>' +
+      '<div class="metric"><div class="k">Raw ratio</div><div class="v ' + (raw >= 1 ? "pos" : "neg") + '">' + V.num(raw, 3) + '</div><div class="n">IV / E[RV]</div></div>' +
+      '<div class="metric"><div class="k">Clean ratio</div><div class="v ' + (clean >= 1 ? "pos" : "neg") + '">' + V.num(clean, 3) + '</div><div class="n">IV diffusive / E[RV]</div></div>' +
+      "</div>";
+    html += '<table style="margin-top:12px"><thead><tr><th>Variance split over ' + e.dte +
+      ' DTE</th><th>Value</th><th>Share</th></tr></thead><tbody>' +
+      '<tr><td>Total variance</td><td class="num">' + V.num(e.totalVariance, 5) + '</td><td class="num">100%</td></tr>' +
+      '<tr><td>Event variance (J&sup2;)</td><td class="num">' + V.num(e.eventVariance, 5) + '</td><td class="num">' +
+        V.num(e.eventVariance / e.totalVariance * 100, 1) + '%</td></tr>' +
+      '<tr class="hl"><td>Diffusive variance</td><td class="num">' + V.num(e.diffusiveVariance, 5) + '</td><td class="num">' +
+        V.num(e.diffusiveVariance / e.totalVariance * 100, 1) + '%</td></tr>' +
+      "</tbody></table>";
+  }
+  if (ctx.earn){
+    var edge = ctx.impliedMovePct / ctx.earn.medianActual;
+    html += '<h3 style="margin-top:16px">Earnings move, priced against history</h3>' +
+      '<div class="metrics" style="margin-top:8px">' +
+      '<div class="metric"><div class="k">Implied move</div><div class="v">' + V.num(ctx.impliedMovePct, 2) + '%</div></div>' +
+      '<div class="metric"><div class="k">Median actual</div><div class="v">' + V.num(ctx.earn.medianActual, 2) +
+        '%</div><div class="n">median, not mean: one wild quarter should not set the price</div></div>' +
+      '<div class="metric"><div class="k">Earnings VRP</div><div class="v ' + (ctx.earn.vrpPoints > 0 ? "pos" : "neg") + '">' +
+        V.signed(ctx.earn.vrpPoints, 2) + '</div><div class="n">points</div></div>' +
+      '<div class="metric"><div class="k">Edge ratio</div><div class="v ' + (edge >= cfg.earningsEdgeRatio ? "pos" : "neg") + '">' +
+        V.num(edge, 2) + '</div><div class="n">threshold ' + cfg.earningsEdgeRatio + " " +
+        V.heur("A calibration choice, not a research result.") + "</div></div></div>" +
+      '<div class="msg note" style="margin-top:10px">This is a separate game from the diffusive VRP. It asks whether the market overprices the SIZE OF THE JUMP, which a delta hedge cannot harvest gradually.</div>';
+  }
+  body.innerHTML = html;
+}
+
+function renderGates(ctx){
+  var html = ctx.decision.gates.map(function(g){
+    var cls = g.result === "PASS" ? "pass" : g.result === "FAIL" ? "fail" : "unknown";
+    return '<div class="gate" data-r="' + g.result + '">' +
+      '<span class="code">' + g.code + "</span>" +
+      '<span class="nm">' + V.esc(g.name) + "</span>" +
+      '<span class="pill ' + cls + '">' + g.result + "</span>" +
+      '<span class="dt">' + V.esc(g.detail) +
+      (g.result === "FAIL" ? " &rarr; " + g.onFail : "") +
+      (g.result === "UNKNOWN" ? " &rarr; cannot be treated as a pass" : "") + "</span>" +
+      "</div>";
+  }).join("");
+  $("gates").innerHTML = html;
+}
+
+function renderScore(ctx){
+  var d = ctx.decision, cfg = ctx.cfg;
+  var p = $("score-pill");
+  p.className = "pill " + (d.score >= cfg.scoreEnter ? "pass" : d.score >= cfg.scoreHalf ? "warn" : "unknown");
+  p.textContent = d.score + " / " + d.maxScore;
+  $("score-chart").innerHTML = V.scoreChart(d.scoreDetail,
+    { enter: cfg.scoreEnter, half: cfg.scoreHalf, wait: cfg.scoreWait }, d.maxScore);
+  $("score-list").innerHTML = d.scoreDetail.map(function(s){
+    return "<li><span class=\"p " + (s.pts > 0 ? "g" : "z") + "\">" + (s.pts > 0 ? "+" + s.pts : s.pts) +
+      "</span><span>" + V.esc(s.why) + "</span></li>";
+  }).join("");
+}
+
+function renderConfidence(ctx){
+  var d = ctx.decision;
+  var p = $("conf-pill");
+  p.className = "pill " + (d.confidence === "High" ? "pass" : d.confidence === "Medium" ? "warn" : "unknown");
+  p.textContent = d.confidence;
+
+  var rows = [
+    ["Price rows", ctx.data.rows + (ctx.data.hasOhlc ? " with full OHLC" : " (close only)")],
+    ["Source", state.dataSource || "-"],
+    ["E[RV] windows", ctx.forecast.windowsUsed.join(", ") + (ctx.forecast.renormalized ? " (renormalized)" : "")],
+    ["Semivariance window", ctx.semi ? ctx.semi.nDown + ctx.semi.nUp + ctx.semi.nZero + " days" : "n/a"],
+    ["Identity residual", ctx.semi ? ctx.semi.identityResidual.toExponential(2) + " (must stay under 1e-9)" : "n/a"],
+    ["Gates unknown", d.unknownGates.length + " of " + d.gates.length],
+    ["Delta-25 IV", d.legs && d.legs.usedAtmFallback ? "missing, ATM substituted" : "supplied"]
+  ];
+  var html = "<table><tbody>";
+  rows.forEach(function(r){
+    html += "<tr><td>" + r[0] + '</td><td class="num" style="text-align:right">' + V.esc(r[1]) + "</td></tr>";
+  });
+  html += "</tbody></table>";
+  if (ctx.data.warnings.length){
+    html += ctx.data.warnings.map(function(w){ return '<div class="msg warn" style="margin-top:8px">' + V.esc(w) + "</div>"; }).join("");
+  }
+  $("conf-body").innerHTML = html;
+}
+/* ------------------------------ trade plan ----------------------------- */
+/* Rules that this section must never break (spec section 8):
+     - a win rate is never shown without the expectancy next to it
+     - PoP is never shown without P_touch next to it
+     - a naked short call is never proposed; covered or defined risk only
+     - a cash-secured put is not proposed when the cash is not there
+     - nothing missing is filled in with a zero                               */
+function renderPlan(ctx){
+  var d = ctx.decision, cfg = ctx.cfg, body = $("plan-body");
+
+  if (!d.tradeable){
+    body.innerHTML = '<div class="msg note">No plan is shown for a <b>' + V.esc(d.verdict) +
+      "</b> verdict. " + V.esc(d.reason) + "</div>";
+    return;
+  }
+
+  var full = d.verdict === ENGINE.Verdict.ENTER;
+  var riskPct = full ? cfg.riskFull : cfg.riskHalf;
+  var html = "";
+
+  /* -- structures allowed for the chosen side -- */
+  var structures = [];
+  if (d.side === ENGINE.Side.SHORT_PUT){
+    structures.push(["Put credit spread", "defined risk",
+      "Short put at the target delta, long put " + V.num(cfg.minCreditToWidth, 2) +
+      "+ credit-to-width below it. Loss is capped at the width."]);
+    if (ctx.cash100){
+      structures.push(["Cash-secured put", "requires the cash",
+        "Worst case is the stock going to zero, so it takes far more risk budget than the delta suggests."]);
+    } else {
+      html += '<div class="msg note">Cash-secured put not offered: you have not confirmed you can cover 100 shares in cash. ' +
+        "Tick that box in the sidebar if the cash is there.</div>";
+    }
+  } else if (d.side === ENGINE.Side.SHORT_CALL){
+    structures.push(["Call credit spread", "defined risk",
+      "Short call at the target delta with a long call above it. Loss is capped at the width."]);
+    structures.push(["Covered call", "requires 100 shares",
+      "Only if you already hold the shares. The upside is capped at the strike."]);
+    html += '<div class="msg warn">A naked short call is never proposed here, at any score. ' +
+      "Its loss is unbounded, so it has to be covered by stock or capped by a long call.</div>";
+  }
+
+  html += '<div class="legs" style="grid-template-columns:1fr">' + structures.map(function(s){
+    return '<div class="leg"><div class="t"><strong>' + s[0] + '</strong><span class="pill">' + s[1] +
+      '</span></div><div style="font-size:.8rem;color:var(--text-dim)">' + s[2] + "</div></div>";
+  }).join("") + "</div>";
+
+  /* -- targets -- */
+  var dteOk = ctx.dte >= cfg.dteMin && ctx.dte <= cfg.dteMax;
+  var deltaOk = ctx.delta !== null && Math.abs(ctx.delta) >= cfg.deltaMin && Math.abs(ctx.delta) <= cfg.deltaMax;
+  var rows = [];
+  rows.push(["Target DTE", cfg.dteMin + " to " + cfg.dteMax + " " +
+    V.heur("A practitioner window, not a research result."),
+    ctx.dte + (dteOk ? "" : "  (outside the target band)")]);
+  rows.push(["Target short delta", V.num(cfg.deltaMin, 2) + " to " + V.num(cfg.deltaMax, 2) + " " +
+    V.heur("A practitioner window, not a research result."),
+    ctx.delta === null ? V.na("short leg delta") : V.num(Math.abs(ctx.delta), 2) + (deltaOk ? "" : "  (outside the target band)")]);
+
+  var em = null;
+  try { em = ctx.spot === null ? null : CORE.expectedMove(ctx.spot, ctx.vrp.iv, ctx.dte); } catch (e){ em = null; }
+  rows.push(["Expected move, 1 sd", "S &middot; IV &middot; sqrt(DTE/365)",
+    em === null ? V.na("spot") : V.num(em, 2) + "  (" + V.pct(em / ctx.spot, 1) + " of spot)"]);
+
+  /* -- probabilities: PoP and P_touch always together -- */
+  var prob = null;
+  if (ctx.delta !== null){
+    try { prob = CORE.probabilities(ctx.delta); } catch (e){ prob = null; }
+  }
+  if (prob){
+    rows.push(["Probability of profit at expiry", "1 &minus; |delta|", V.pct(prob.popExpiry, 1)]);
+    rows.push(["Probability of touching the strike", "2 &middot; |delta|, reflection principle",
+      V.pct(prob.pTouch, 1) + "  &mdash; a stop-on-touch rule fires this often, not " +
+      V.pct(1 - prob.popExpiry, 1)]);
+    rows.push(["Touch penalty", "how much of the apparent win rate a touch stop eats",
+      V.pct(prob.touchPenalty, 1)]);
+  } else {
+    rows.push(["Probability of profit / of touch", "both or neither", V.na("short leg delta")]);
+  }
+
+  /* -- credit quality, sizing, expectancy -- */
+  var maxLoss = null, ctw = null, exp = null, sizing = null;
+  if (ctx.width !== null && ctx.credit !== null){
+    ctw = ctx.credit / ctx.width;
+    try { maxLoss = CORE.creditSpreadMaxLoss(ctx.width, ctx.credit); }
+    catch (e){ html += '<div class="msg err">' + V.esc(e.message) + "</div>"; }
+  }
+  if (ctw !== null){
+    rows.push(["Credit to width", "minimum " + V.num(cfg.minCreditToWidth, 2) + " " +
+      V.heur("A calibration choice."),
+      V.num(ctw, 3) + (ctw >= cfg.minCreditToWidth ? "" : "  (too thin for the risk)")]);
+  }
+  if (maxLoss !== null){
+    rows.push(["Max loss per contract", "(width &minus; credit) &times; 100", V.money(maxLoss)]);
+  }
+  if (prob && maxLoss !== null){
+    var avgWin = ctx.credit * 100 * cfg.tpPct;
+    try {
+      exp = CORE.expectancy(prob.popExpiry, avgWin, maxLoss);
+      rows.push(["Expectancy per contract",
+        "PoP &times; avg win &minus; (1 &minus; PoP) &times; avg loss, taking profit at " +
+        V.pct(cfg.tpPct, 0) + " of credit " + V.heur("The take-profit level is a calibration choice."),
+        V.money(exp.value) + (exp.isPositive ? "" : "  &mdash; negative despite the high win rate")]);
+    } catch (e){ /* reported through the row being absent */ }
+  }
+  if (ctx.portfolio !== null && maxLoss !== null){
+    try {
+      sizing = CORE.positionSize(ctx.portfolio, riskPct, maxLoss);
+      rows.push(["Risk budget", V.pct(riskPct, 2) + " of the portfolio (" +
+        (full ? "full size" : "half size") + ") " + V.heur("A risk budget we chose."),
+        V.money(sizing.riskBudget)]);
+      rows.push(["Contracts", "floor(budget / max loss)",
+        sizing.contracts + (sizing.contracts === 0 ? "  &mdash; this trade is too big for the account" : "") +
+        (sizing.contracts > 0 ? "  (" + V.pct(sizing.actualRiskPct, 2) + " of the portfolio at risk)" : "")]);
+    } catch (e){ html += '<div class="msg err">' + V.esc(e.message) + "</div>"; }
+  }
+
+  rows.push(["Take profit", "close at " + V.pct(cfg.tpPct, 0) + " of the credit " + V.heur("Practitioner convention."),
+    ctx.credit === null ? V.na("credit") : V.num(ctx.credit * (1 - cfg.tpPct), 2) + " to buy back"]);
+  rows.push(["Stop", V.num(cfg.slCreditMultiple, 1) + "x the credit received " + V.heur("A calibration choice."),
+    ctx.credit === null ? V.na("credit") : V.num(ctx.credit * cfg.slCreditMultiple, 2)]);
+  rows.push(["Time exit", "close at " + cfg.timeExitDte + " DTE " +
+    V.heur("Gamma risk accelerates after this. A convention, not a research result."),
+    cfg.timeExitDte + " DTE"]);
+
+  html += '<table style="margin-top:12px"><thead><tr><th>Item</th><th style="text-align:left">Basis</th><th>Value</th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    html += "<tr><td>" + r[0] + '</td><td style="text-align:left;color:var(--text-dim);font-size:.76rem">' +
+      r[1] + '</td><td class="num">' + r[2] + "</td></tr>";
+  });
+  html += "</tbody></table>";
+
+  if (prob && exp === null){
+    html += '<div class="msg warn" style="margin-top:10px">A win rate is shown above without an expectancy beside it. ' +
+      "Enter the spread width and the credit so the expectancy can be computed: a high win rate with a bad payoff ratio still loses money.</div>";
+  }
+  html += '<div class="msg note" style="margin-top:10px">Variance that arrives while the price sits near the strike is the variance that hurts. ' +
+    "A quiet month with one burst at the strike can lose money even when the average VRP was positive. That is path dependency, and no single number above captures it.</div>";
+
+  body.innerHTML = html;
+}
+
+/* ------------------------------ snapshot -------------------------------- */
+function buildSnapshot(ctx, base){
+  var d = ctx.decision;
+  return {
+    generatedAt: base.generatedAt,
+    tool: "VRP Stock Analyzer",
+    verdict: d.verdict,
+    side: d.side,
+    score: d.score,
+    maxScore: d.maxScore,
+    confidence: d.confidence,
+    reason: d.reason,
+    effectiveRatio: d.effectiveRatio,
+    effectiveRatioSource: d.effectiveRatioSource,
+    warnings: d.warnings,
+    caveats: d.caveats,
+    gates: d.gates.map(function(g){
+      return { code: g.code, name: g.name, result: g.result, detail: g.detail, onFail: g.onFail };
+    }),
+    scoreDetail: d.scoreDetail,
+    vrp: {
+      iv30: ctx.vrp.iv, expectedRv30: ctx.vrp.rv, variance: ctx.vrp.variance,
+      volPoints: ctx.vrp.volPoints, rawRatio: ctx.vrp.ratio,
+      selfcheckResidual: ctx.vrp.selfcheckResidual
+    },
+    forecast: {
+      value: ctx.forecast.value, windowsUsed: ctx.forecast.windowsUsed,
+      weightsEffective: ctx.forecast.weightsEffective, renormalized: ctx.forecast.renormalized,
+      components: ctx.forecast.components
+    },
+    estimators: {
+      window: ctx.est.window,
+      closeToClose20: ctx.est.cc20 === undefined ? null : ctx.est.cc20,
+      closeToClose60: ctx.est.cc60 === undefined ? null : ctx.est.cc60,
+      closeToClose120: ctx.est.cc120 === undefined ? null : ctx.est.cc120,
+      parkinson: ctx.est.park === undefined ? null : ctx.est.park,
+      garmanKlass: ctx.est.gk === undefined ? null : ctx.est.gk,
+      yangZhang: ctx.est.yz === undefined ? null : ctx.est.yz,
+      gapRatio: ctx.est.gapRatio
+    },
+    semivariance: ctx.semi ? {
+      down: ctx.semi.down, up: ctx.semi.up, total: ctx.semi.total,
+      identityResidual: ctx.semi.identityResidual,
+      nDown: ctx.semi.nDown, nUp: ctx.semi.nUp, nZero: ctx.semi.nZero
+    } : null,
+    legs: d.legs,
+    event: ctx.event,
+    eventError: ctx.eventError,
+    earningsVrp: ctx.earn,
+    ivMetrics: { ivRank: ctx.ivr, termStructure: ctx.ts },
+    data: { rows: ctx.data.rows, hasOhlc: ctx.data.hasOhlc, source: state.dataSource,
+            warnings: ctx.data.warnings },
+    config: base.config,
+    disclaimer: CONFIG.DISCLAIMER
+  };
+}
+/* --------------------------- calibration editor ------------------------- */
+function cfgGet(path){
+  var p = path.split(".");
+  return p.length === 1 ? state.cfg[p[0]] : state.cfg[p[0]][p[1]];
+}
+function cfgSet(path, value){
+  var p = path.split(".");
+  if (p.length === 1) state.cfg[p[0]] = value;
+  else state.cfg[p[0]][p[1]] = value;
+}
+
+function renderConfigEditor(){
+  var html = CONFIG.GROUPS.map(function(group){
+    var fields = group[1].map(function(f){
+      var path = f[0], label = f[1], step = f[2];
+      var base = path.split(".")[0];
+      var prov = CONFIG.PROVENANCE[base];
+      var tag = prov ? '<span class="prov" data-p="' + prov[0] + '" title="' + V.esc(prov[1]) + '">' +
+        prov[0] + "</span>" : "";
+      return '<div class="cfgf"><label for="cfg-' + V.esc(path) + '">' + V.esc(label) + tag + "</label>" +
+        '<input type="number" id="cfg-' + V.esc(path) + '" data-cfg="' + V.esc(path) +
+        '" step="' + step + '" value="' + cfgGet(path) + '"></div>';
+    }).join("");
+    return "<h3 style=\"margin:14px 0 8px\">" + V.esc(group[0]) + '</h3><div class="cfggrid">' + fields + "</div>";
+  }).join("");
+  $("cfg-groups").innerHTML = html;
+  refreshCfgIssues();
+}
+
+function refreshCfgIssues(){
+  var issues = CONFIG.validate(state.cfg);
+  $("cfg-issues").innerHTML = issues.length
+    ? issues.map(function(t){ return '<div class="msg err">' + V.esc(t) + "</div>"; }).join("")
+    : '<div class="msg note">Configuration is coherent.</div>';
+}
+
+/* ------------------------------- exports -------------------------------- */
+function copyJSON(){
+  if (!state.snapshot){
+    flash($("btn-json"), "nothing to copy");
+    return;
+  }
+  var text = JSON.stringify(state.snapshot, null, 2);
+  var done = function(){ flash($("btn-json"), "copied"); };
+  var fail = function(){
+    var ta = $("csv-paste");
+    flash($("btn-json"), "copy blocked");
+    try { window.prompt("Copy the analysis JSON:", text); } catch (e){ /* nothing else to try */ }
+  };
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(done, function(){ legacyCopy(text) ? done() : fail(); });
+      return;
+    }
+  } catch (e){ /* fall through */ }
+  if (legacyCopy(text)) done(); else fail();
+}
+function legacyCopy(text){
+  try {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch (e){ return false; }
+}
+function flash(btn, text){
+  if (!btn) return;
+  var old = btn.textContent;
+  btn.textContent = text;
+  setTimeout(function(){ btn.textContent = old; }, 1400);
+}
+
+/* -------------------------------- theme --------------------------------- */
+function applyTheme(mode){
+  if (mode === "auto") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", mode);
+  var seg = $("theme-seg");
+  if (seg){
+    Array.prototype.forEach.call(seg.querySelectorAll("button"), function(b){
+      b.setAttribute("aria-pressed", String(b.getAttribute("data-theme-set") === mode));
+    });
+  }
+  try { localStorage.setItem("vrp-theme", mode); } catch (e){ /* private mode, blocked storage */ }
+}
+
+/* ------------------------------ demo input ------------------------------ */
+function loadDemo(){
+  var s = SYNTH.demoSeries(260, 0.32, 20260101, 180);
+  var last = s.close[s.close.length - 1];
+  var preset = {
+    "in-iv30": 38, "in-ivp": 62, "in-ivput25": 41, "in-ivcall25": 36,
+    "in-ivm1": 38, "in-ivm2": 39, "in-ivmin": 22, "in-ivmax": 68,
+    "in-spot": last.toFixed(2), "in-dte": 38, "in-spread": 3.5, "in-oi": 1800,
+    "in-delta": 0.2, "in-edays": 25, "in-imove": 6,
+    "in-hmoves": "5.1, 7.4, 3.9, 6.2, 4.8, 9.1, 5.5, 6.0",
+    "in-portfolio": 50000, "in-width": 5, "in-credit": 1.3
+  };
+  Object.keys(preset).forEach(function(id){ if ($(id)) $(id).value = preset[id]; });
+  $("in-trend").value = "yes";
+  $("in-cash100").checked = false;
+  /* Earnings land inside the expiry and the user is taking the event on
+     purpose, so the demo is coherent and lands on the case this tool exists
+     for: a raw VRP that looks positive while the clean VRP is negative. */
+  $("in-event-intent").checked = true;
+  $("in-ts-explained").checked = false;
+  $("csv-paste").value = "";
+  setData(SYNTH.toCSV(s), "Synthetic demo series (generated in this page, not a real stock)");
+}
+
+/* ------------------------------- wiring --------------------------------- */
+function wire(){
+  $("disclaimer-text").textContent = CONFIG.DISCLAIMER;
+
+  var saved = "auto";
+  try { saved = localStorage.getItem("vrp-theme") || "auto"; } catch (e){ saved = "auto"; }
+  applyTheme(saved);
+  $("theme-seg").addEventListener("click", function(ev){
+    var b = ev.target.closest("button[data-theme-set]");
+    if (b) applyTheme(b.getAttribute("data-theme-set"));
+  });
+
+  var sidebar = document.querySelector("aside");
+  ["input", "change"].forEach(function(evt){
+    sidebar.addEventListener(evt, function(ev){
+      if (ev.target.id === "csv-file") return;
+      if (ev.target.id === "csv-paste"){
+        var text = ev.target.value;
+        if (text.trim() === ""){
+          if (state.dataSource.indexOf("Pasted") === 0){ state.data = null; state.dataSource = ""; }
+          analyze();
+        } else {
+          setData(text, "Pasted rows");
+        }
+        return;
+      }
+      analyze();
+    });
+  });
+
+  $("csv-file").addEventListener("change", function(ev){
+    var file = ev.target.files && ev.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){ setData(String(reader.result), file.name); };
+    reader.onerror = function(){
+      $("data-status").innerHTML = '<span style="color:var(--fail)">Could not read that file.</span>';
+    };
+    reader.readAsText(file);
+  });
+
+  $("btn-demo").addEventListener("click", loadDemo);
+  $("btn-clear-data").addEventListener("click", function(){
+    state.data = null; state.dataSource = "";
+    $("csv-paste").value = "";
+    $("csv-file").value = "";
+    $("data-status").textContent = "No price data loaded.";
+    analyze();
+  });
+
+  $("cfg-groups").addEventListener("input", function(ev){
+    var path = ev.target.getAttribute("data-cfg");
+    if (!path) return;
+    var v = Number(ev.target.value);
+    if (!isFinite(v)) return;
+    cfgSet(path, v);
+    refreshCfgIssues();
+    analyze();
+  });
+  $("btn-cfg-reset").addEventListener("click", function(){
+    state.cfg = CONFIG.defaults();
+    renderConfigEditor();
+    analyze();
+  });
+
+  $("btn-json").addEventListener("click", copyJSON);
+  $("btn-print").addEventListener("click", function(){ window.print(); });
+  $("btn-tests").addEventListener("click", function(){
+    var out = $("test-out");
+    out.innerHTML = '<div class="tsum">running...</div>';
+    setTimeout(function(){ renderTests(runSelfTests()); }, 20);
+  });
+
+  renderConfigEditor();
+  analyze();
+}
+/* ===========================================================================
+   SELF-TESTS -- port of vrp_app/tests/test_core.py
+   ---------------------------------------------------------------------------
+   Two kinds of check live here.
+
+   Property tests: the Python originals lean on numpy's RNG, which cannot be
+   reproduced here. Every assertion they make is a tolerance or an ordering,
+   so a different but correct normal stream satisfies them. The margins were
+   measured against the Python reference across 100-200 seeds before porting,
+   and the values are set by the structure of the estimators rather than by the
+   draw (for instance the no-gap gap ratio sits in 0.761-0.764 across seeds).
+
+   Cross-language fixture: a closed-form price path with no randomness, whose
+   expected answers were produced by the Python implementation. If the port
+   drifted from the reference in any formula, that test fails.
+   =========================================================================== */
+
+/* Values below come from running gen_golden.py against vrp_app. */
+var GOLDEN = {
+  rvCc20: 0.07090031484815157,
+  rvCc60: 0.07710661674823763,
+  rvCc120: 0.07770879810098456,
+  rvParkinson120: 0.1759582263382422,
+  rvGk120: 0.20530889896556273,
+  rvYz120: 0.2091727033460798,
+  gapRatio: 2.691750592696782,
+  semiDown60: 0.04757483218167121,
+  semiUp60: 0.06068002710320275,
+  semiTotal60: 0.07710661674823763,
+  semiNDown: 28, semiNUp: 32, semiNZero: 0,
+  forecastRv: 0.07412390206874399,
+  vrpRatio: 6.070916228649984,
+  vrpVariance: 0.19700564714210325,
+  vrpVolPoints: 37.5876097931256,
+  eventIvDiffusive: 0.40978171339333697,
+  decideVerdict: "ENTER",
+  decideSide: "SHORT_PUT",
+  decideScore: 10,
+  decideEffectiveRatio: 5.528334342319124,
+  decideEffectiveRatioSource: "clean",
+  decideConfidence: "High",
+  decideNWarnings: 1,
+  legVrpPutPts: 41.871902710105665,
+  legVrpCallPts: 33.71854827054837,
+  legSkewGap: 1.4654277219966765,
+  expectedMove38: 14.519707910568282,
+  pop020: 0.8,
+  pTouch020: 0.4
+};
+var GOLDEN_TOL = 1e-9;   // loose enough for libm differences, tight enough to catch any formula error
+
+function runSelfTests(){
+  var results = [];
+  function test(name, fn){
+    try { fn(); results.push({ name: name, ok: true }); }
+    catch (e){ results.push({ name: name, ok: false, err: e && e.message ? e.message : String(e) }); }
+  }
+
+  function assert(cond, msg){ if (!cond) throw new Error(msg || "assertion failed"); }
+  function assertClose(a, b, relTol, msg){
+    var diff = Math.abs(a - b), scale = Math.max(Math.abs(a), Math.abs(b));
+    if (scale === 0) return;
+    if (!(diff / scale <= relTol))
+      throw new Error((msg || "values differ") + ": " + a + " vs " + b + " (rel " + (diff / scale).toExponential(3) + ")");
+  }
+  function assertThrows(fn, needle, msg){
+    try { fn(); }
+    catch (e){
+      if (needle && String(e.message).indexOf(needle) < 0 && e.kind !== needle)
+        throw new Error((msg || "throw") + " raised the wrong error: " + e.message);
+      return;
+    }
+    throw new Error((msg || "expected a throw") + " -- nothing was raised");
+  }
+
+  var cfg = CONFIG.defaults();
+  function mkVrp(iv, rv){ return CORE.computeVRP(iv, rv); }
+
+  /* Mirrors _full_score_kwargs in the Python suite. */
+  function fullScore(over){
+    var iv = over.iv, rv = over.rv;
+    var close = SYNTH.gbmCloses(rv, 200, 1);
+    var semi = CORE.semivariance(close, 60);
+    var base = {
+      cfg: cfg, vrp: mkVrp(iv, rv), dte: 38, semi: semi,
+      ivPut25: iv * 1.10, ivCall25: iv * 0.90,
+      ivp: 70.0, termStruct: 0.96, earningsDays: 90,
+      spreadPct: 2.0, openInterest: 3000, trendAligned: true
+    };
+    Object.keys(over).forEach(function(k){
+      if (k !== "iv" && k !== "rv") base[k] = over[k];
+    });
+    return base;
+  }
+
+  function csvFrom(series, mutate){
+    var rows = ["Date,Open,High,Low,Close"];
+    var d = new Date(Date.UTC(2025, 0, 1));
+    for (var i = 0; i < series.n; i++){
+      var o = series.open[i], h = series.high[i], l = series.low[i], c = series.close[i];
+      if (mutate) { var m = mutate(i, o, h, l, c); if (m) { o = m[0]; h = m[1]; l = m[2]; c = m[3]; } }
+      rows.push(d.toISOString().slice(0, 10) + "," + o + "," + h + "," + l + "," + c);
+      d.setUTCDate(d.getUTCDate() + 1);
+    }
+    return rows.join("\n");
+  }
+  function demoN(n, seed){
+    var s = SYNTH.demoSeries(n, 0.35, seed || 1, 100);
+    return s;
+  }
+
+  /* ---------------- 1. semivariance identity ---------------- */
+  test("semivariance identity holds across 1000 paths", function(){
+    for (var seed = 0; seed < 1000; seed++){
+      var close = SYNTH.gbmCloses(0.35, 80, seed);
+      var s = CORE.semivariance(close, 60);
+      assertClose(s.down * s.down + s.up * s.up, s.total * s.total, 1e-9, "seed " + seed);
+      assert(s.identityResidual <= 1e-9, "residual too large at seed " + seed);
+      assert(s.nDown + s.nUp + s.nZero === 60, "day count wrong at seed " + seed);
+    }
+  });
+
+  test("semivariance total matches rv_cc on the same window", function(){
+    var close = SYNTH.gbmCloses(0.28, 300, 7);
+    var s = CORE.semivariance(close, 60);
+    assertClose(s.total, CORE.rvCloseToClose(close, 60), 1e-12);
+  });
+
+  test("semivariance handles zero returns", function(){
+    var close = [];
+    for (var i = 0; i < 10; i++) close.push(100.0);
+    for (var j = 0; j < 8; j++) close.push(101.0, 101.0, 100.0, 100.0);
+    var s = CORE.semivariance(close, 30);
+    assert(s.nZero > 0, "expected some zero returns");
+    assertClose(s.down * s.down + s.up * s.up, s.total * s.total, 1e-12);
+  });
+
+  /* ---------------- 2. known-vol recovery ---------------- */
+  test("rv_cc recovers a known sigma of 0.30", function(){
+    var close = SYNTH.gbmCloses(0.30, 5000, 42);
+    var rv = CORE.rvCloseToClose(close, 4999);
+    assert(rv >= 0.28 && rv <= 0.32, "got " + rv);
+  });
+
+  [0.15, 0.30, 0.60, 1.20].forEach(function(sigma){
+    test("rv_cc is unbiased at sigma " + sigma, function(){
+      var close = SYNTH.gbmCloses(sigma, 6000, 11);
+      var rv = CORE.rvCloseToClose(close, 5999);
+      assert(Math.abs(rv - sigma) / sigma < 0.05, "sigma " + sigma + " -> " + rv);
+    });
+  });
+
+  test("all estimators agree when there are no gaps", function(){
+    var close = SYNTH.gbmCloses(0.30, 1200, 3);
+    var o = SYNTH.noGapOHLC(close, 3);
+    var w = 1000;
+    var cc = CORE.rvCloseToClose(close, w);
+    [["parkinson", CORE.rvParkinson(o.high, o.low, w)],
+     ["garman-klass", CORE.rvGarmanKlass(o.open, o.high, o.low, close, w)],
+     ["yang-zhang", CORE.rvYangZhang(o.open, o.high, o.low, close, w)]
+    ].forEach(function(p){
+      assert(Math.abs(p[1] - cc) / cc < 0.25, p[0] + " " + p[1] + " vs cc " + cc);
+    });
+  });
+
+  /* ---------------- 3. estimator ordering under gaps ---------------- */
+  test("parkinson and garman-klass read low when gaps dominate", function(){
+    var close = SYNTH.gbmCloses(0.50, 400, 5);
+    var o = SYNTH.ohlcFromCloses(close, 5, 0.040, 0.002);
+    var w = 250;
+    var cc = CORE.rvCloseToClose(close, w);
+    var pk = CORE.rvParkinson(o.high, o.low, w);
+    var gk = CORE.rvGarmanKlass(o.open, o.high, o.low, close, w);
+    var yz = CORE.rvYangZhang(o.open, o.high, o.low, close, w);
+    assert(pk < cc, "parkinson " + pk + " should be below cc " + cc);
+    assert(gk < cc, "gk " + gk + " should be below cc " + cc);
+    assert(pk < yz && gk < yz, "both should sit below yang-zhang " + yz);
+    assert(CORE.gapRatio(yz, cc) > 1.0, "gap ratio should exceed 1");
+  });
+
+  test("gap ratio stays near one without gaps", function(){
+    var close = SYNTH.gbmCloses(0.30, 400, 9);
+    var o = SYNTH.noGapOHLC(close, 9);
+    var w = 250;
+    var ratio = CORE.gapRatio(CORE.rvYangZhang(o.open, o.high, o.low, close, w),
+                              CORE.rvCloseToClose(close, w));
+    assert(ratio > 0.7 && ratio < 1.3, "ratio " + ratio);
+  });
+
+  /* ---------------- 4. event decomposition ---------------- */
+  test("iv diffusive stays below iv total whenever the jump is positive", function(){
+    [0.02, 0.05, 0.09, 0.14].forEach(function(move){
+      var d = CORE.decomposeEvent(0.60, 38, move);
+      assert(d.ivDiffusive < d.ivTotal, "move " + move);
+      assert(d.diffusiveVariance > 0, "move " + move);
+      var t = 38 / 365.0;
+      assertClose(d.ivDiffusive * d.ivDiffusive * t + move * move, 0.60 * 0.60 * t, 1e-12, "algebra at move " + move);
+    });
+  });
+
+  test("a zero jump leaves iv unchanged", function(){
+    var d = CORE.decomposeEvent(0.60, 38, 0.0);
+    assertClose(d.ivDiffusive, 0.60, 1e-12);
+  });
+
+  test("an oversized jump raises instead of clamping", function(){
+    assertThrows(function(){ CORE.decomposeEvent(0.30, 7, 0.25); }, "Event decomposition");
+  });
+
+  test("earnings vrp uses the median, not the mean", function(){
+    var r = CORE.earningsVRP(10.0, [5.0, 6.0, 5.5, 6.5, 5.0, 6.0, 5.5, 40.0]);
+    assertClose(r.medianActual, 5.75, 1e-12);
+    assertClose(r.vrpPoints, 4.25, 1e-12);
+  });
+
+  /* ---------------- 5. gates short-circuit the score ---------------- */
+  test("a negative VRP forces DO NOT ENTER whatever the score", function(){
+    var d = ENGINE.decide(fullScore({ iv: 0.30, rv: 0.40 }));
+    assert(d.verdict === ENGINE.Verdict.DO_NOT_ENTER, "got " + d.verdict);
+    assert(d.gates.some(function(g){ return g.code === "G1" && g.result === "FAIL"; }), "G1 should fail");
+  });
+
+  test("an event inside the window forces WAIT", function(){
+    var d = ENGINE.decide(fullScore({ iv: 0.60, rv: 0.30, earningsDays: 10 }));
+    assert(d.verdict === ENGINE.Verdict.WAIT, "got " + d.verdict);
+    assert(d.gates.some(function(g){ return g.code === "G2" && g.result === "FAIL"; }), "G2 should fail");
+  });
+
+  test("bad liquidity forces DO NOT ENTER", function(){
+    var d = ENGINE.decide(fullScore({ iv: 0.60, rv: 0.30, spreadPct: 25.0, openInterest: 4 }));
+    assert(d.verdict === ENGINE.Verdict.DO_NOT_ENTER, "got " + d.verdict);
+  });
+
+  test("a clean setup reaches ENTER", function(){
+    var d = ENGINE.decide(fullScore({ iv: 0.60, rv: 0.30 }));
+    assert(d.verdict === ENGINE.Verdict.ENTER, "got " + d.verdict + " score " + d.score);
+    assert(d.score >= cfg.scoreEnter, "score " + d.score);
+    assert(d.confidence === "High", "confidence " + d.confidence);
+    assert(d.failedGates.length === 0 && d.unknownGates.length === 0, "no gate should be failed or unknown");
+  });
+
+  /* ---------------- 6. clean VRP overrides raw ---------------- */
+  test("clean VRP overrides a positive raw VRP", function(){
+    var iv = 0.58, rv = 0.48;
+    var ev = CORE.decomposeEvent(iv, 38, 0.115);
+    var d = ENGINE.decide(fullScore({ iv: iv, rv: rv, event: ev, earningsDays: 90, tradingTheEvent: true }));
+    assert(d.effectiveRatioSource === "clean", "source " + d.effectiveRatioSource);
+    assert(mkVrp(iv, rv).ratio > 1.0, "raw ratio should be positive");
+    assert(d.effectiveRatio < 1.0, "clean ratio should be negative, got " + d.effectiveRatio);
+    assert(d.verdict === ENGINE.Verdict.DO_NOT_ENTER, "got " + d.verdict);
+    assert(d.warnings.some(function(w){ return w.indexOf("Clean VRP is negative") >= 0; }), "missing the headline warning");
+  });
+
+  test("a clean VRP that is still positive keeps the trade alive", function(){
+    var iv = 0.70, rv = 0.30;
+    var ev = CORE.decomposeEvent(iv, 38, 0.05);
+    var d = ENGINE.decide(fullScore({ iv: iv, rv: rv, event: ev }));
+    assert(d.effectiveRatio > 1.0, "clean ratio " + d.effectiveRatio);
+    assert(d.verdict === ENGINE.Verdict.ENTER || d.verdict === ENGINE.Verdict.HALF_SIZE, "got " + d.verdict);
+    assert(!d.warnings.some(function(w){ return w.indexOf("Clean VRP is negative") >= 0; }), "should not warn");
+  });
+
+  /* ---------------- 7. missing data degrades, never guesses ---------------- */
+  test("a missing delta-25 IV falls back to ATM with a warning", function(){
+    var kw = fullScore({ iv: 0.60, rv: 0.30 });
+    kw.ivPut25 = null;
+    kw.ivCall25 = null;
+    var d = ENGINE.decide(kw);
+    assert(d.legs && d.legs.usedAtmFallback, "fallback flag should be set");
+    assert(d.warnings.some(function(w){ return w.indexOf("delta-25") >= 0; }), "missing the fallback warning");
+    assert(d.confidence === "Medium" || d.confidence === "Low", "confidence " + d.confidence);
+  });
+
+  test("gates that cannot be checked are UNKNOWN, never PASS", function(){
+    var d = ENGINE.decide({ cfg: cfg, vrp: mkVrp(0.60, 0.30), dte: 38 });
+    var unknown = {};
+    d.unknownGates.forEach(function(g){ unknown[g.code] = true; });
+    ["G2", "G3", "G4", "G5", "G6"].forEach(function(c){ assert(unknown[c], c + " should be unknown"); });
+    assert(d.caveats.length > 0, "a caveat is required");
+    assert(d.confidence === "Low", "confidence " + d.confidence);
+  });
+
+  test("nothing missing is silently defaulted to zero", function(){
+    var d = ENGINE.decide({ cfg: cfg, vrp: mkVrp(0.60, 0.30), dte: 38 });
+    assert(d.legs === null, "legs should be null, not an empty object");
+    var r = DATAIO.normalizeIV(null);
+    assert(r.value === null && r.notes.length === 0, "a missing IV must stay null");
+  });
+
+  /* ---------------- 8. the architecture, enforced not hoped for ---------------- */
+  function stripJs(src){
+    var out = "", i = 0, n = src.length;
+    while (i < n){
+      var c = src.charAt(i);
+      if (c === "/" && src.charAt(i + 1) === "*"){
+        var e = src.indexOf("*/", i + 2); i = e < 0 ? n : e + 2; continue;
+      }
+      if (c === "/" && src.charAt(i + 1) === "/"){
+        var e2 = src.indexOf("\n", i); i = e2 < 0 ? n : e2; continue;
+      }
+      if (c === '"' || c === "'" || c === "`"){
+        var q = c; i++;
+        while (i < n && src.charAt(i) !== q){ if (src.charAt(i) === "\\") i++; i++; }
+        i++; out += '""'; continue;
+      }
+      out += c; i++;
+    }
+    return out;
+  }
+
+  test("the core holds no calibration constants", function(){
+    var src = stripJs(buildCore.toString());
+    [/1\.25/, /1\.15/, /1\.05/, /0\.85/, /1\.41421/, /0\.015/, /0\.0075/].forEach(function(p){
+      var hit = src.match(p);
+      assert(hit === null, "the core contains " + p + " -- move it to the calibration layer");
+    });
+  });
+
+  test("the core does not reach into the calibration layer", function(){
+    var src = stripJs(buildCore.toString());
+    assert(src.indexOf("CONFIG") < 0, "the core references CONFIG");
+    assert(src.indexOf("buildConfig") < 0, "the core references buildConfig");
+  });
+
+  test("forecastRV refuses to run without explicit weights", function(){
+    assert(CORE.forecastRV.length === 2, "forecastRV must declare weights with no default");
+    assertThrows(function(){ CORE.forecastRV(SYNTH.gbmCloses(0.3, 200, 2)); }, "explicit weights");
+  });
+
+  /* ---------------- VRP, position and loader maths ---------------- */
+  test("variance is the headline number", function(){
+    var v = mkVrp(0.60, 0.40);
+    assertClose(v.variance, 0.60 * 0.60 - 0.40 * 0.40, 1e-12);
+    assertClose(v.ratio, 1.5, 1e-12);
+    assertClose(v.volPoints, 20.0, 1e-12);
+  });
+
+  test("the vrp self check is tight when iv is near rv", function(){
+    assert(mkVrp(0.305, 0.300).selfcheckResidual < 0.05, "residual too large");
+  });
+
+  test("vrp rejects non-positive inputs", function(){
+    [[0.0, 0.3], [0.3, 0.0], [-0.1, 0.3]].forEach(function(p){
+      assertThrows(function(){ mkVrp(p[0], p[1]); }, "vrp");
+    });
+  });
+
+  test("HAR renormalizes when a window has too little data", function(){
+    var close = SYNTH.gbmCloses(0.3, 70, 2);
+    var f = CORE.forecastRV(close, { 20: 0.50, 60: 0.30, 120: 0.20 });
+    assert(f.windowsUsed.join(",") === "20,60", "windows " + f.windowsUsed);
+    assert(f.renormalized, "should be flagged as renormalized");
+    var s = 0;
+    Object.keys(f.weightsEffective).forEach(function(k){ s += f.weightsEffective[k]; });
+    assertClose(s, 1.0, 1e-12);
+    assertClose(f.weightsEffective[20], 0.5 / 0.8, 1e-12);
+  });
+
+  test("the HAR blend lies between its components", function(){
+    var close = SYNTH.gbmCloses(0.3, 400, 4);
+    var f = CORE.forecastRV(close, { 20: 0.50, 60: 0.30, 120: 0.20 });
+    var vals = Object.keys(f.components).map(function(k){ return f.components[k]; });
+    assert(Math.min.apply(null, vals) <= f.value && f.value <= Math.max.apply(null, vals), "blend out of range");
+  });
+
+  test("touch probability is double the expiry probability", function(){
+    var p = CORE.probabilities(0.20);
+    assertClose(p.popExpiry, 0.80, 1e-12);
+    assertClose(p.pTouch, 0.40, 1e-12);
+  });
+
+  test("a high win rate can still be a negative expectancy", function(){
+    var p = CORE.probabilities(0.20);
+    var e = CORE.expectancy(p.popExpiry, 100.0, 600.0);
+    assertClose(e.pop, 0.80, 1e-12);
+    assert(!e.isPositive, "expectancy should be negative");
+  });
+
+  test("sizing returns zero contracts when the trade is too big", function(){
+    assert(CORE.positionSize(10000, 0.015, 5000).contracts === 0, "should not fit");
+  });
+
+  test("a credit above the width is rejected", function(){
+    assertThrows(function(){ CORE.creditSpreadMaxLoss(5.0, 5.5); }, "position");
+  });
+
+  test("expected move scales with the square root of time", function(){
+    var a = CORE.expectedMove(100.0, 0.40, 30);
+    var b = CORE.expectedMove(100.0, 0.40, 120);
+    assertClose(b / a, 2.0, 1e-12);
+  });
+
+  test("the loader accepts a clean file", function(){
+    var r = DATAIO.loadOHLC(csvFrom(demoN(150, 1)));
+    assert(r.hasOhlc && r.rows === 150, "rows " + r.rows);
+    assert(r.warnings.length === 0, "unexpected warnings: " + r.warnings.join(" | "));
+  });
+
+  test("the loader rejects impossible OHLC", function(){
+    var txt = csvFrom(demoN(150, 1), function(i, o, h, l, c){
+      return i === 10 ? [o, l - 1.0, l, c] : null;
+    });
+    assertThrows(function(){ DATAIO.loadOHLC(txt); }, "impossible OHLC");
+  });
+
+  test("the loader rejects a file with too few rows", function(){
+    assertThrows(function(){ DATAIO.loadOHLC(csvFrom(demoN(15, 1))); }, "at least");
+  });
+
+  test("the loader warns about a short history", function(){
+    var r = DATAIO.loadOHLC(csvFrom(demoN(100, 1)));
+    assert(r.warnings.some(function(w){ return w.indexOf("renormalize") >= 0; }), "missing the HAR warning");
+  });
+
+  test("normalizeIV handles both units", function(){
+    var a = DATAIO.normalizeIV(52.4);
+    assertClose(a.value, 0.524, 1e-12);
+    var b = DATAIO.normalizeIV(0.524);
+    assertClose(b.value, 0.524, 1e-12);
+    assert(b.notes.length > 0, "reading a decimal must be reported");
+  });
+
+  test("normalizeIV flags a value outside the usual range", function(){
+    var r = DATAIO.normalizeIV(450.0);
+    assert(r.notes.some(function(n){ return n.indexOf("outside the usual") >= 0; }), "missing the range note");
+  });
+
+  test("the calibration validator catches mis-ordered thresholds", function(){
+    var bad = CONFIG.defaults();
+    bad.vrpThin = 1.30;
+    assert(CONFIG.validate(bad).length > 0, "should be rejected");
+    assert(CONFIG.validate(CONFIG.defaults()).length === 0, "defaults should be clean");
+  });
+
+  test("the calibration validator rejects a threshold below parity", function(){
+    var bad = CONFIG.defaults();
+    bad.vrpThin = 0.95;
+    assert(CONFIG.validate(bad).some(function(i){ return i.indexOf("G1") >= 0; }), "should mention G1");
+  });
+
+  /* ---------------- cross-language fixture ---------------- */
+  test("the golden fixture matches the Python reference", function(){
+    var p = SYNTH.goldenPath(260);
+    var G = GOLDEN, T = GOLDEN_TOL;
+
+    assertClose(CORE.rvCloseToClose(p.close, 20), G.rvCc20, T, "rv_cc 20");
+    assertClose(CORE.rvCloseToClose(p.close, 60), G.rvCc60, T, "rv_cc 60");
+    assertClose(CORE.rvCloseToClose(p.close, 120), G.rvCc120, T, "rv_cc 120");
+    assertClose(CORE.rvParkinson(p.high, p.low, 120), G.rvParkinson120, T, "parkinson");
+    assertClose(CORE.rvGarmanKlass(p.open, p.high, p.low, p.close, 120), G.rvGk120, T, "garman-klass");
+    var yz = CORE.rvYangZhang(p.open, p.high, p.low, p.close, 120);
+    assertClose(yz, G.rvYz120, T, "yang-zhang");
+    assertClose(CORE.gapRatio(yz, CORE.rvCloseToClose(p.close, 120)), G.gapRatio, T, "gap ratio");
+
+    var semi = CORE.semivariance(p.close, 60);
+    assertClose(semi.down, G.semiDown60, T, "semivol down");
+    assertClose(semi.up, G.semiUp60, T, "semivol up");
+    assertClose(semi.total, G.semiTotal60, T, "semivol total");
+    assert(semi.nDown === G.semiNDown && semi.nUp === G.semiNUp && semi.nZero === G.semiNZero,
+      "day counts " + semi.nDown + "/" + semi.nUp + "/" + semi.nZero);
+
+    var f = CORE.forecastRV(p.close, cfg.harWeights);
+    assertClose(f.value, G.forecastRv, T, "E[RV]");
+    assert(f.renormalized === false, "should not renormalize");
+
+    var IV = 0.45;
+    var v = CORE.computeVRP(IV, f.value);
+    assertClose(v.ratio, G.vrpRatio, T, "vrp ratio");
+    assertClose(v.variance, G.vrpVariance, T, "vrp variance");
+    assertClose(v.volPoints, G.vrpVolPoints, T, "vrp vol points");
+
+    var ev = CORE.decomposeEvent(IV, 38, 0.06);
+    assertClose(ev.ivDiffusive, G.eventIvDiffusive, T, "iv diffusive");
+
+    var d = ENGINE.decide({
+      cfg: cfg, vrp: v, dte: 38, event: ev, semi: semi,
+      ivPut25: IV * 1.08, ivCall25: IV * 0.94,
+      ivp: 62.0, termStruct: 0.97, earningsDays: 70,
+      spreadPct: 3.5, openInterest: 1800, rvYz: yz, trendAligned: true
+    });
+    assert(d.verdict === G.decideVerdict, "verdict " + d.verdict);
+    assert(d.side === G.decideSide, "side " + d.side);
+    assert(d.score === G.decideScore, "score " + d.score);
+    assert(d.effectiveRatioSource === G.decideEffectiveRatioSource, "source " + d.effectiveRatioSource);
+    assert(d.confidence === G.decideConfidence, "confidence " + d.confidence);
+    assert(d.warnings.length === G.decideNWarnings, "warning count " + d.warnings.length);
+    assertClose(d.effectiveRatio, G.decideEffectiveRatio, T, "effective ratio");
+    assertClose(d.legs.vrpPutPts, G.legVrpPutPts, T, "put leg VRP");
+    assertClose(d.legs.vrpCallPts, G.legVrpCallPts, T, "call leg VRP");
+    assertClose(d.legs.skewGap, G.legSkewGap, T, "skew gap");
+
+    assertClose(CORE.expectedMove(100.0, IV, 38), G.expectedMove38, T, "expected move");
+    var pr = CORE.probabilities(0.20);
+    assertClose(pr.popExpiry, G.pop020, T, "PoP");
+    assertClose(pr.pTouch, G.pTouch020, T, "P touch");
+  });
+
+  return results;
+}
+
+function renderTests(results){
+  var pass = results.filter(function(r){ return r.ok; }).length;
+  var fail = results.length - pass;
+  var html = '<div class="tsum" style="color:var(--' + (fail ? "fail" : "pass") + ')">' +
+    pass + " passed, " + fail + " failed, " + results.length + " total</div>";
+  html += results.map(function(r){
+    return '<div class="t ' + (r.ok ? "p" : "f") + '"><span class="mk">' + (r.ok ? "PASS" : "FAIL") +
+      "</span><span>" + V.esc(r.name) + "</span>" +
+      (r.ok ? "" : '<span class="err">' + V.esc(r.err) + "</span>") + "</div>";
+  }).join("");
+  $("test-out").innerHTML = html;
+}
+
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire);
+else wire();
+</script>
+</body>
+</html>
