@@ -2052,7 +2052,7 @@ var SYNTH = buildSynth();
 var V = buildView();
 
 var state = { cfg: CONFIG.defaults(), data: null, dataSource: "", snapshot: null,
-              trendDirection: null, loaded: null };
+              trendDirection: null, loaded: null, helperOk: false, savedSymbols: null };
 
 function $(id){ return document.getElementById(id); }
 function sval(id){ var e = $(id); return e ? String(e.value).trim() : ""; }
@@ -2970,49 +2970,61 @@ function applyTheme(mode){
    can never reach localhost -- no amount of starting things will fix it, they
    have to open the right address. So diagnose before advising. */
 var LOCAL_URL = "http://localhost:8765";
-function helperAdvice(){
+
+/* Only reached when a symbol has no snapshot and no helper can be found, which
+   is a genuine dead end rather than the normal online case. Say the one thing
+   that will work, and nothing else. */
+function helperAdvice(sym){
   if (location.protocol === "file:"){
-    return "This page was opened straight from the file, so it has no way to reach the helper. " +
-      'Open <a href="' + LOCAL_URL + '">' + LOCAL_URL + "</a> instead — run " +
-      "<code>python vrp.py</code> (or double-click <code>VRP.bat</code>) and it opens there by itself.";
+    return "Opened straight from the file, so there is nothing to ask. Run " +
+      "<code>python vrp.py</code> and use <a href=\"" + LOCAL_URL + "\">" + LOCAL_URL + "</a>.";
   }
   if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1"){
-    return "Live lookups need the helper on your own machine, because browsers will not let a page " +
-      "on this address read CBOE or Yahoo. Use the ready-made symbols below, refreshed every " +
-      "weekday after the close, or run <code>python vrp.py</code> and open " +
-      '<a href="' + LOCAL_URL + '">' + LOCAL_URL + "</a> for any ticker you like.";
+    var have = state.savedSymbols && state.savedSymbols.length
+      ? " Ready here: " + state.savedSymbols.join(", ") + "."
+      : "";
+    return (sym ? V.esc(sym) + " is not in the daily set." : "Not in the daily set.") + have +
+      " For any other ticker, run <code>python vrp.py</code> and use " +
+      "<a href=\"" + LOCAL_URL + "\">" + LOCAL_URL + "</a>.";
   }
-  return "The helper did not answer. Start it with <code>python vrp.py</code> in the project folder, " +
-    "then press Calculate again — no need to reload.";
+  return "The helper did not answer. Start it with <code>python vrp.py</code>, then press " +
+    "Calculate again — no need to reload.";
 }
 
-/* The ticker box is never disabled. Locking a text field because a background
-   probe has not answered yet is hostile: you cannot even type the symbol, and
-   starting the helper afterwards leaves it stuck until a reload. Type whenever
-   you like; if the helper is not there, pressing the button says so and
-   re-checks, so starting it is enough. */
-function probeHelper(){
-  $("calc-hint").innerHTML = "checking for the local helper…";
-  var settled = false;
-  function offline(){
-    if (settled) return;
-    settled = true;
-    $("calc-hint").innerHTML = helperAdvice();
+/* Two things matter here. The box is never disabled: locking a text field
+   because a background probe has not answered is hostile, and starting the
+   helper afterwards would leave it stuck until a reload. And the resting text
+   describes what the button will do, rather than explaining a limitation --
+   online it opens a prepared symbol, which is a real answer, not a failure. */
+function setHint(){
+  var n = state.savedSymbols ? state.savedSymbols.length : 0;
+  if (state.helperOk){
+    $("calc-hint").innerHTML = "Any ticker, fetched live. Chain from CBOE, prices from Yahoo.";
+  } else if (n){
+    $("calc-hint").innerHTML = n + " symbols ready, refreshed each weekday after the close. " +
+      "Type one and press Calculate, or tap it on the board.";
+  } else {
+    $("calc-hint").innerHTML = helperAdvice(null);
   }
-  function online(){
+}
+
+function probeHelper(){
+  var settled = false;
+  function done(ok){
     if (settled) return;
     settled = true;
-    $("calc-hint").innerHTML = "Helper is running. Chain from CBOE, prices from Yahoo.";
+    state.helperOk = ok;
+    setHint();
   }
   try {
     fetch("api/health", { cache: "no-store" }).then(function(r){
-      if (!r.ok) return offline();
+      if (!r.ok) return done(false);
       return r.json().then(function(j){
-        if (j && j.service === "vrp-local-helper") online(); else offline();
-      }).catch(offline);
-    }).catch(offline);
-  } catch (e){ offline(); }
-  setTimeout(offline, 4000);
+        done(!!(j && j.service === "vrp-local-helper"));
+      }).catch(function(){ done(false); });
+    }).catch(function(){ done(false); });
+  } catch (e){ done(false); }
+  setTimeout(function(){ done(false); }, 4000);
 }
 
 function showProgress(on){ $("calc-progress").style.display = on ? "" : "none"; }
@@ -3034,6 +3046,20 @@ function calculate(){
     $("in-symbol").focus();
     return;
   }
+
+  /* Without a helper the button is not useless, it just answers from the daily
+     snapshot instead of fetching live. Pressing Calculate on a prepared symbol
+     online is an ordinary success, so it should behave like one rather than
+     explaining why something else is impossible. */
+  if (!state.helperOk && state.savedSymbols && state.savedSymbols.indexOf(sym) >= 0){
+    loadSaved(sym);
+    return;
+  }
+  if (!state.helperOk && state.savedSymbols && state.savedSymbols.length){
+    $("calc-status").innerHTML = '<span style="color:var(--warn)">' + helperAdvice(sym) + "</span>";
+    return;
+  }
+
   var dte = nval("in-dte") || 38;
   var btn = $("btn-calc"), label = "Calculate VRP";
   btn.disabled = true;
@@ -3046,7 +3072,7 @@ function calculate(){
   function fail(msg, helperDown){
     showProgress(false);
     $("calc-status").innerHTML = '<span style="color:var(--fail)">' +
-      (helperDown ? helperAdvice() : V.esc(msg)) + "</span>";
+      (helperDown ? helperAdvice(sym) : V.esc(msg)) + "</span>";
     if (helperDown) probeHelper();
     stop();
   }
@@ -3171,6 +3197,8 @@ function loadSavedIndex(){
       if (!idx || !idx.symbols) return;
       var syms = Object.keys(idx.symbols).sort();
       if (!syms.length) return;
+      state.savedSymbols = syms;
+      setHint();                       // the probe may have run before this landed
       $("saved-list").innerHTML = syms.map(function(s){
         return '<button type="button" class="sm" data-saved="' + V.esc(s) + '">' + V.esc(s) + "</button>";
       }).join("");
