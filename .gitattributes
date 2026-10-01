@@ -1,0 +1,4 @@
+# The IV log is append-only, one row per trading session. Union-merging it means
+# a scheduled run and a manual one never produce a conflict; if both write the
+# same session, the next run collapses the duplicate back to one row.
+fetch/iv_history/*.csv merge=union

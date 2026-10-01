@@ -2883,9 +2883,26 @@ function applyTheme(mode){
    with `python vrp.py`. When that helper is not there the box stays disabled
    and the file-based flow below is unchanged, which is what happens on GitHub
    Pages and on file://. The analyzer still makes no third-party request. */
-var HELPER_DOWN = "The local helper did not answer. Start it with " +
-  "<code>python vrp.py</code> in the project folder, then press Calculate again. " +
-  "No need to reload the page.";
+/* Why the helper cannot be reached depends on where this page was opened from,
+   and telling someone to start a helper they already started is worse than
+   saying nothing. A page opened straight off disk, or served from GitHub Pages,
+   can never reach localhost -- no amount of starting things will fix it, they
+   have to open the right address. So diagnose before advising. */
+var LOCAL_URL = "http://localhost:8765";
+function helperAdvice(){
+  if (location.protocol === "file:"){
+    return "This page was opened straight from the file, so it has no way to reach the helper. " +
+      'Open <a href="' + LOCAL_URL + '">' + LOCAL_URL + "</a> instead — run " +
+      "<code>python vrp.py</code> (or double-click <code>VRP.bat</code>) and it opens there by itself.";
+  }
+  if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1"){
+    return "This is the hosted copy, and browsers will not let a page on this address read CBOE or " +
+      "Yahoo. Run <code>python vrp.py</code> on your own machine and use " +
+      '<a href="' + LOCAL_URL + '">' + LOCAL_URL + "</a>, or load a CSV or inputs JSON below.";
+  }
+  return "The helper did not answer. Start it with <code>python vrp.py</code> in the project folder, " +
+    "then press Calculate again — no need to reload.";
+}
 
 /* The ticker box is never disabled. Locking a text field because a background
    probe has not answered yet is hostile: you cannot even type the symbol, and
@@ -2898,8 +2915,7 @@ function probeHelper(){
   function offline(){
     if (settled) return;
     settled = true;
-    $("calc-hint").innerHTML = "Helper not running — press Calculate once it is up, " +
-      "or load a CSV / inputs JSON below.";
+    $("calc-hint").innerHTML = helperAdvice();
   }
   function online(){
     if (settled) return;
@@ -2948,7 +2964,7 @@ function calculate(){
   function fail(msg, helperDown){
     showProgress(false);
     $("calc-status").innerHTML = '<span style="color:var(--fail)">' +
-      (helperDown ? HELPER_DOWN : V.esc(msg)) + "</span>";
+      (helperDown ? helperAdvice() : V.esc(msg)) + "</span>";
     if (helperDown) probeHelper();
     stop();
   }

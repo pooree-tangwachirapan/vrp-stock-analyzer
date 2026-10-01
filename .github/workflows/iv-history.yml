@@ -45,14 +45,28 @@ jobs:
       - name: Record today's implied vol
         run: python fetch/fetch_inputs.py --watchlist fetch/watchlist.txt --log-only
 
+      # Push on its own terms. Anything may have landed on main while this ran --
+      # a commit from a laptop, another run of this job -- and the log must not be
+      # the thing that fails. The CSVs are union-merged (.gitattributes), so a
+      # rebase cannot conflict on them, and a duplicated session collapses on the
+      # next run. Retry a few times in case of a genuine race for the ref.
       - name: Commit anything new
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add fetch/iv_history
           if git diff --cached --quiet; then
-            echo "No new rows -- the session was already recorded."
+            echo "No new rows -- this session was already recorded."
             exit 0
           fi
           git commit -m "IV log: session $(date -u -d '5 hours ago' +%Y-%m-%d)"
-          git push
+          for attempt in 1 2 3; do
+            if git push; then
+              echo "pushed on attempt $attempt"
+              exit 0
+            fi
+            echo "push rejected, rebasing onto what landed meanwhile (attempt $attempt)"
+            git pull --rebase --no-edit origin main || exit 1
+          done
+          echo "could not push after three attempts" >&2
+          exit 1

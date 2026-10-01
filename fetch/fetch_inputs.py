@@ -288,17 +288,20 @@ def session_date(cboe_timestamp: str, fallback: dt.date) -> dt.date:
 
 
 def update_iv_history(path: str, today: dt.date, iv30_pct, notes):
-    rows = []
+    # One row per session, last value wins. Git is told to union-merge these
+    # files so a scheduled run and a manual one never collide, which can leave
+    # two rows for the same day; reading into a dict heals that on the next run.
+    seen: dict = {}
     if os.path.exists(path):
         with open(path, newline="", encoding="utf-8") as f:
             for r in csv.DictReader(f):
                 try:
-                    rows.append((dt.date.fromisoformat(r["date"]), float(r["atm_iv_pct"])))
+                    seen[dt.date.fromisoformat(r["date"])] = float(r["atm_iv_pct"])
                 except (ValueError, KeyError):
                     continue
     if iv30_pct is not None:
-        rows = [r for r in rows if r[0] != today] + [(today, iv30_pct)]
-        rows.sort()
+        seen[today] = iv30_pct
+        rows = sorted(seen.items())
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", newline="", encoding="utf-8") as f:
             w = csv.writer(f)
@@ -306,6 +309,7 @@ def update_iv_history(path: str, today: dt.date, iv30_pct, notes):
             for d, v in rows:
                 w.writerow([d.isoformat(), f"{v:.4f}"])
 
+    rows = sorted(seen.items())
     series = [v for _, v in rows]
     ivp = ivr = lo = hi = None
     if iv30_pct is None:

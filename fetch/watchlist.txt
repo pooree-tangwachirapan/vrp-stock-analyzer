@@ -1,8 +1,23 @@
 # Symbols the daily IV log follows. One per line, # starts a comment.
-# Index options need a leading underscore: _SPX, _NDX, _VIX
-QQQ
-SPY
-_SPX
+# Index options need a leading underscore: _SPX, _NDX, _VIX.
+# Every name here was checked against CBOE; roughly 7 MB per run in total.
+
+# The Magnificent Seven
 AAPL
+MSFT
+GOOGL
+AMZN
 NVDA
+META
 TSLA
+
+# Core market ETFs
+SPY
+QQQ
+IWM
+DIA
+
+# Index options
+_SPX
+_NDX
+_VIX
