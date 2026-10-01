@@ -289,7 +289,18 @@ footer.disc b{color:var(--text)}
         <div class="hd"><h2>Data</h2></div>
         <div class="bd">
           <div class="f">
-            <label for="json-file">Inputs JSON &mdash; fills everything at once</label>
+            <label for="in-symbol">Ticker</label>
+            <div class="flexrow" style="gap:6px; flex-wrap:nowrap">
+              <input type="text" id="in-symbol" placeholder="AAPL" autocomplete="off"
+                     spellcheck="false" style="flex:1; min-width:0; text-transform:uppercase">
+              <button type="button" class="primary" id="btn-calc" style="flex:none">Calculate VRP</button>
+            </div>
+            <span class="hint" id="calc-hint"></span>
+          </div>
+          <div id="calc-status" class="muted" style="margin-bottom:10px"></div>
+
+          <div class="f">
+            <label for="json-file">&hellip; or an inputs JSON written by the fetcher</label>
             <input type="file" id="json-file" accept=".json,application/json">
             <span class="hint">Produced by <code>fetch/fetch_inputs.py</code>. Read locally; the page never fetches.</span>
           </div>
@@ -2747,6 +2758,79 @@ function applyTheme(mode){
   try { localStorage.setItem("vrp-theme", mode); } catch (e){ /* private mode, blocked storage */ }
 }
 
+/* ------------------------- one-click: ticker box -------------------------
+   Browsers refuse cross-origin requests to cdn.cboe.com, Yahoo and Stooq --
+   none of them send CORS headers -- so this page cannot read them directly,
+   whatever the code says. It asks a helper on its own origin instead, started
+   with `python vrp.py`. When that helper is not there the box stays disabled
+   and the file-based flow below is unchanged, which is what happens on GitHub
+   Pages and on file://. The analyzer still makes no third-party request. */
+function setCalcEnabled(on, hint){
+  $("btn-calc").disabled = !on;
+  $("in-symbol").disabled = !on;
+  $("calc-hint").innerHTML = hint;
+}
+
+function probeHelper(){
+  setCalcEnabled(false, "looking for the local helper…");
+  var settled = false;
+  function offline(){
+    if (settled) return;
+    settled = true;
+    setCalcEnabled(false,
+      "Not running. Start it with <code>python vrp.py</code> in the project folder and reload, " +
+      "or load a CSV / inputs JSON below.");
+  }
+  function online(){
+    settled = true;
+    setCalcEnabled(true, "Helper is running. Chain from CBOE, prices from Yahoo.");
+  }
+  try {
+    fetch("api/health", { cache: "no-store" }).then(function(r){
+      if (!r.ok) return offline();
+      return r.json().then(function(j){
+        if (settled) return;
+        if (j && j.service === "vrp-local-helper") online(); else offline();
+      }).catch(offline);
+    }).catch(offline);
+  } catch (e){ offline(); }
+  setTimeout(offline, 4000);
+}
+
+function calculate(){
+  var sym = sval("in-symbol").toUpperCase();
+  if (!sym){
+    $("calc-status").innerHTML = '<span style="color:var(--fail)">Type a ticker first.</span>';
+    return;
+  }
+  var dte = nval("in-dte") || 38;
+  var btn = $("btn-calc"), label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "fetching…";
+  $("calc-status").innerHTML = "Pulling the chain for <b>" + V.esc(sym) + "</b> near " + dte +
+    " DTE, plus two years of prices. A few seconds.";
+
+  fetch("api/inputs?symbol=" + encodeURIComponent(sym) + "&dte=" + encodeURIComponent(dte),
+        { cache: "no-store" })
+    .then(function(r){ return r.text().then(function(t){ return { ok: r.ok, text: t }; }); })
+    .then(function(res){
+      if (!res.ok){
+        var msg = res.text;
+        try { msg = JSON.parse(res.text).error || msg; } catch (e){ /* keep the raw body */ }
+        throw new Error(msg);
+      }
+      loadInputsJSON(res.text, sym);
+      $("calc-status").innerHTML = "";
+    })
+    .catch(function(e){
+      $("calc-status").innerHTML = '<span style="color:var(--fail)">' + V.esc(e.message) + "</span>";
+    })
+    .then(function(){
+      btn.disabled = false;
+      btn.textContent = label;
+    });
+}
+
 /* --------------------------- inputs JSON loader --------------------------
    Reads the file fetch/fetch_inputs.py writes. The page still makes no network
    call of its own: this is a local file handed over by the user.
@@ -2855,7 +2939,8 @@ function wire(){
   var sidebar = document.querySelector("aside");
   ["input", "change"].forEach(function(evt){
     sidebar.addEventListener(evt, function(ev){
-      if (ev.target.id === "csv-file" || ev.target.id === "json-file") return;
+      if (ev.target.id === "csv-file" || ev.target.id === "json-file" ||
+          ev.target.id === "in-symbol") return;
       if (ev.target.id === "csv-paste"){
         var text = ev.target.value;
         if (text.trim() === ""){
@@ -2879,6 +2964,11 @@ function wire(){
       $("data-status").innerHTML = '<span style="color:var(--fail)">Could not read that file.</span>';
     };
     reader.readAsText(file);
+  });
+
+  $("btn-calc").addEventListener("click", calculate);
+  $("in-symbol").addEventListener("keydown", function(ev){
+    if (ev.key === "Enter" && !$("btn-calc").disabled) calculate();
   });
 
   $("json-file").addEventListener("change", function(ev){
@@ -2932,6 +3022,7 @@ function wire(){
   });
 
   renderConfigEditor();
+  probeHelper();
   analyze();
 }
 /* ===========================================================================
