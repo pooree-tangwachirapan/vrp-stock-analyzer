@@ -1,0 +1,58 @@
+name: IV history
+
+# Builds the implied-vol history that IV Rank and IV Percentile need. No free
+# source publishes one, so the only way to have it is to record it daily.
+#
+# On timing: GitHub's scheduler is not punctual. It has been seen running four
+# to ten hours late, which once skewed a month of logs on another project. That
+# is handled rather than hoped away -- the job runs after the close, and the
+# fetcher keys every row by the trading session the CBOE snapshot belongs to
+# rather than by the clock when the job happened to start. A run that slips to
+# 3am still files its number under the right session, and a weekend run files
+# under the Friday.
+
+on:
+  schedule:
+    # 21:30 UTC is 17:30 in New York during daylight time and 16:30 otherwise,
+    # so it is after the close either way. Weekdays only.
+    - cron: "30 21 * * 1-5"
+  workflow_dispatch:          # and run it by hand whenever you like
+
+permissions:
+  contents: write
+
+concurrency:
+  group: iv-history
+  cancel-in-progress: false
+
+jobs:
+  log:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # The log only needs implied vol, which comes from CBOE. Prices and
+      # earnings are skipped in --log-only mode, so yfinance and pandas are not
+      # installed here at all.
+      - name: Install
+        run: pip install --quiet numpy
+
+      - name: Record today's implied vol
+        run: python fetch/fetch_inputs.py --watchlist fetch/watchlist.txt --log-only
+
+      - name: Commit anything new
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add fetch/iv_history
+          if git diff --cached --quiet; then
+            echo "No new rows -- the session was already recorded."
+            exit 0
+          fi
+          git commit -m "IV log: session $(date -u -d '5 hours ago' +%Y-%m-%d)"
+          git push

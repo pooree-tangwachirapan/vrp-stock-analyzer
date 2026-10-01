@@ -28,7 +28,9 @@ import json
 import os
 import sys
 import threading
+import time
 import urllib.parse
+import uuid
 import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
@@ -38,9 +40,65 @@ sys.path.insert(0, os.path.join(REPO, "fetch"))
 import fetch_inputs  # noqa: E402
 
 
+# Jobs, so the page can show a real progress bar instead of a spinner. The
+# fetch runs on its own thread and reports where it has got to; the page polls.
+JOBS: dict[str, dict] = {}
+JOBS_LOCK = threading.Lock()
+JOB_TTL = 900          # seconds to keep a finished job around for collection
+
+
+def _prune_jobs():
+    now = time.time()
+    with JOBS_LOCK:
+        for k in [k for k, v in JOBS.items() if now - v["touched"] > JOB_TTL]:
+            JOBS.pop(k, None)
+
+
+def _run_job(job_id: str, symbol: str, dte: int, width: float, delta: float, period: str):
+    def report(pct, stage):
+        with JOBS_LOCK:
+            j = JOBS.get(job_id)
+            if j:
+                # never go backwards, and never claim completion before there is a result
+                j["pct"] = max(j["pct"], min(99, int(pct)))
+                j["stage"] = stage
+                j["touched"] = time.time()
+
+    try:
+        payload = fetch_inputs.build(
+            symbol, dte, width, delta, period,
+            os.path.join(REPO, "fetch", "iv_history"), progress=report)
+    except fetch_inputs.FetchError as e:
+        with JOBS_LOCK:
+            JOBS[job_id].update(done=True, pct=100, stage="failed",
+                                error=str(e), touched=time.time())
+        print(f"  {symbol}: {e}", file=sys.stderr)
+        return
+    except Exception as e:                                       # noqa: BLE001
+        with JOBS_LOCK:
+            JOBS[job_id].update(done=True, pct=100, stage="failed",
+                                error=f"{type(e).__name__}: {e}", touched=time.time())
+        print(f"  {symbol}: {type(e).__name__}: {e}", file=sys.stderr)
+        return
+
+    i = payload["inputs"]
+    filled = sum(1 for v in i.values() if v is not None)
+    print(f"  {symbol}: {filled}/{len(i)} fields, {len(payload['ohlc'])} price rows", file=sys.stderr)
+    with JOBS_LOCK:
+        JOBS[job_id].update(done=True, pct=100, stage="done",
+                            payload=payload, touched=time.time())
+
+
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *a, **kw):
         super().__init__(*a, directory=REPO, **kw)
+
+    # Serve the page fresh. Without this the browser keeps showing a cached
+    # index.html after the file changes, which looks exactly like a bug.
+    def end_headers(self):
+        if (self.path or "").split("?")[0].endswith((".html", "/", ".js", ".css")):
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        super().end_headers()
 
     # keep the console readable: one line per data request, nothing for assets
     def log_message(self, fmt, *args):
@@ -62,7 +120,61 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json(200, {"ok": True, "service": "vrp-local-helper"})
         if parts.path == "/api/inputs":
             return self._inputs(urllib.parse.parse_qs(parts.query))
+        if parts.path == "/api/start":
+            return self._start(urllib.parse.parse_qs(parts.query))
+        if parts.path == "/api/progress":
+            return self._progress(urllib.parse.parse_qs(parts.query))
         return super().do_GET()
+
+    def _start(self, q):
+        try:
+            symbol, dte, width, delta, period = self._args(q)
+        except ValueError as e:
+            return self._json(400, {"error": str(e)})
+        _prune_jobs()
+        job_id = uuid.uuid4().hex
+        with JOBS_LOCK:
+            JOBS[job_id] = {"pct": 1, "stage": "starting", "done": False,
+                            "symbol": symbol, "touched": time.time()}
+        threading.Thread(target=_run_job, daemon=True,
+                         args=(job_id, symbol, dte, width, delta, period)).start()
+        print(f"  fetching {symbol} (target {dte} DTE) ...", file=sys.stderr)
+        return self._json(200, {"id": job_id})
+
+    def _progress(self, q):
+        job_id = (q.get("id") or [""])[0]
+        with JOBS_LOCK:
+            j = JOBS.get(job_id)
+            if not j:
+                return self._json(404, {"error": "That job is gone. Press Calculate again."})
+            j["touched"] = time.time()
+            out = {"pct": j["pct"], "stage": j["stage"], "done": j["done"]}
+            if j["done"]:
+                if "error" in j:
+                    out["error"] = j["error"]
+                else:
+                    out["payload"] = j["payload"]
+                JOBS.pop(job_id, None)
+        return self._json(200, out)
+
+    def _args(self, q):
+        symbol = (q.get("symbol") or [""])[0].strip().upper()
+        if not symbol:
+            raise ValueError("No ticker given.")
+        if not all(c.isalnum() or c in "._-^" for c in symbol):
+            raise ValueError(f"{symbol!r} does not look like a ticker.")
+
+        def one(name, cast, default):
+            v = (q.get(name) or [None])[0]
+            if v in (None, ""):
+                return default
+            try:
+                return cast(v)
+            except ValueError:
+                return default
+
+        return (symbol, one("dte", int, 38), one("width", float, 5.0),
+                one("delta", float, 0.25), (q.get("period") or ["2y"])[0])
 
     def _inputs(self, q):
         def one(name, cast, default):

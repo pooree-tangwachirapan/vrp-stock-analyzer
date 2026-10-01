@@ -1,0 +1,8 @@
+# Symbols the daily IV log follows. One per line, # starts a comment.
+# Index options need a leading underscore: _SPX, _NDX, _VIX
+QQQ
+SPY
+_SPX
+AAPL
+NVDA
+TSLA

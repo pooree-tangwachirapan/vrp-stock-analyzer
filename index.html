@@ -242,6 +242,12 @@ footer.disc{margin-top:22px; padding:14px 16px; border-radius:var(--radius);
   background:var(--surface-2); border:1px solid var(--border); color:var(--text-dim); font-size:.8rem}
 footer.disc b{color:var(--text)}
 
+.prog{height:8px; background:var(--surface-3); border-radius:999px; overflow:hidden}
+.prog .bar{height:100%; width:0; background:var(--accent); border-radius:999px; transition:width .2s ease}
+.proglbl{display:flex; justify-content:space-between; gap:10px; font-family:var(--mono);
+  font-size:.7rem; color:var(--text-dim); margin-top:4px}
+.proglbl .pct{font-weight:700; color:var(--accent)}
+
 .flexrow{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
 .muted{color:var(--text-faint); font-size:.78rem}
 
@@ -296,6 +302,10 @@ footer.disc b{color:var(--text)}
               <button type="button" class="primary" id="btn-calc" style="flex:none">Calculate VRP</button>
             </div>
             <span class="hint" id="calc-hint"></span>
+          </div>
+          <div id="calc-progress" style="display:none; margin-bottom:10px">
+            <div class="prog"><div class="bar" id="prog-bar"></div></div>
+            <div class="proglbl"><span id="prog-stage"></span><span class="pct" id="prog-pct">0%</span></div>
           </div>
           <div id="calc-status" class="muted" style="margin-bottom:10px"></div>
 
@@ -2799,43 +2809,70 @@ function probeHelper(){
   setTimeout(offline, 4000);
 }
 
+function showProgress(on){ $("calc-progress").style.display = on ? "" : "none"; }
+function setProgress(pct, stage){
+  var p = Math.max(0, Math.min(100, Number(pct) || 0));
+  $("prog-bar").style.width = p + "%";
+  $("prog-pct").textContent = Math.round(p) + "%";
+  $("prog-stage").textContent = stage || "";
+}
+
+/* The fetch runs as a job on the helper so the bar can show where it actually
+   is rather than spinning. The chain download dominates -- 1.6 MB for a single
+   stock, ten times that for SPX -- and CBOE sends it chunked with no length to
+   divide by, so the helper reports bytes received and the page shows both. */
 function calculate(){
   var sym = sval("in-symbol").toUpperCase();
   if (!sym){
     $("calc-status").innerHTML = '<span style="color:var(--fail)">Type a ticker first.</span>';
+    $("in-symbol").focus();
     return;
   }
   var dte = nval("in-dte") || 38;
-  var btn = $("btn-calc"), label = btn.textContent;
+  var btn = $("btn-calc"), label = "Calculate VRP";
   btn.disabled = true;
-  btn.textContent = "fetching…";
-  $("calc-status").innerHTML = "Pulling the chain for <b>" + V.esc(sym) + "</b> near " + dte +
-    " DTE, plus two years of prices. A few seconds.";
+  btn.textContent = "working…";
+  $("calc-status").innerHTML = "";
+  showProgress(true);
+  setProgress(1, "starting " + sym);
 
-  fetch("api/inputs?symbol=" + encodeURIComponent(sym) + "&dte=" + encodeURIComponent(dte),
+  function stop(){ btn.disabled = false; btn.textContent = label; }
+  function fail(msg, helperDown){
+    showProgress(false);
+    $("calc-status").innerHTML = '<span style="color:var(--fail)">' +
+      (helperDown ? HELPER_DOWN : V.esc(msg)) + "</span>";
+    if (helperDown) probeHelper();
+    stop();
+  }
+
+  function poll(id){
+    fetch("api/progress?id=" + encodeURIComponent(id), { cache: "no-store" })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        setProgress(j.pct, j.stage);
+        if (!j.done) return setTimeout(function(){ poll(id); }, 300);
+        if (j.error) return fail(j.error);
+        setProgress(100, "done");
+        try { loadInputsJSON(JSON.stringify(j.payload), sym); }
+        catch (e){ return fail(e.message); }
+        $("calc-status").innerHTML = "";
+        setTimeout(function(){ showProgress(false); }, 400);
+        stop();
+      })
+      .catch(function(){ fail(null, true); });
+  }
+
+  fetch("api/start?symbol=" + encodeURIComponent(sym) + "&dte=" + encodeURIComponent(dte),
         { cache: "no-store" })
     .then(function(r){ return r.text().then(function(t){ return { ok: r.ok, text: t }; }); })
     .then(function(res){
       var data = null;
-      try { data = JSON.parse(res.text); } catch (e){ /* not JSON: not our helper */ }
-      if (!data) throw new Error("__down__");          // a 404 page, or nothing listening
-      if (!res.ok) throw new Error(data.error || ("HTTP " + res.status));
-      loadInputsJSON(res.text, sym);
-      $("calc-status").innerHTML = "";
+      try { data = JSON.parse(res.text); } catch (e){ /* a 404 page: not our helper */ }
+      if (!data) return fail(null, true);
+      if (!res.ok || data.error) return fail(data.error || ("HTTP " + res.status));
+      poll(data.id);
     })
-    .catch(function(e){
-      var msg = e && e.message ? e.message : String(e);
-      if (msg === "__down__" || /failed to fetch|networkerror|load failed/i.test(msg)){
-        $("calc-status").innerHTML = '<span style="color:var(--fail)">' + HELPER_DOWN + "</span>";
-        probeHelper();
-      } else {
-        $("calc-status").innerHTML = '<span style="color:var(--fail)">' + V.esc(msg) + "</span>";
-      }
-    })
-    .then(function(){
-      btn.disabled = false;
-      btn.textContent = label;
-    });
+    .catch(function(){ fail(null, true); });
 }
 
 /* --------------------------- inputs JSON loader --------------------------

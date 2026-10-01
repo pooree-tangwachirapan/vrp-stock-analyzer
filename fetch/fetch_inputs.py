@@ -62,16 +62,42 @@ class FetchError(RuntimeError):
 # ---------------------------------------------------------------------------
 # CBOE
 # ---------------------------------------------------------------------------
-def fetch_cboe(symbol: str) -> dict:
-    """Stocks and ETFs use the plain symbol; index options need a leading _."""
+def fetch_cboe(symbol: str, progress=None) -> dict:
+    """Stocks and ETFs use the plain symbol; index options need a leading _.
+
+    Read in chunks rather than in one gulp so the caller can report real
+    progress. This is the slow part by a wide margin: AAPL is 1.6 MB and SPX
+    is 13 MB, against a couple of small calls for everything else.
+    """
     url = CBOE_URL.format(sym=symbol)
     req = urllib.request.Request(url, headers={
         "User-Agent": UA, "Accept": "application/json", "Accept-Encoding": "gzip"})
     try:
         with urllib.request.urlopen(req, timeout=60) as r:
-            raw = r.read()
+            total = int(r.headers.get("Content-Length") or 0)
+            chunks, got = [], 0
+            while True:
+                block = r.read(65536)
+                if not block:
+                    break
+                chunks.append(block)
+                got += len(block)
+                if progress:
+                    # CBOE sends the file chunked, so there is no Content-Length to
+                    # divide by. got/(got+k) always advances, never reaches the end of
+                    # the band, and never claims a total it does not know. The KB
+                    # counter beside it is the real number.
+                    frac = (got / total) if total else got / (got + 300_000)
+                    progress(8 + 50 * frac,
+                             f"downloading the {symbol} chain, {got // 1024} KB" +
+                             (f" of {total // 1024}" if total else ""))
+            raw = b"".join(chunks)
             if r.headers.get("Content-Encoding") == "gzip":
+                if progress:
+                    progress(60, "unpacking")
                 raw = gzip.decompress(raw)
+            if progress:
+                progress(63, "reading the chain")
             return json.loads(raw.decode("utf-8"))
     except urllib.error.HTTPError as e:
         if e.code == 403:
@@ -229,6 +255,38 @@ def earnings_info(ticker, hist, notes):
 # ---------------------------------------------------------------------------
 # IV history log -- the only way to get IV Rank and IV Percentile for free
 # ---------------------------------------------------------------------------
+def session_date(cboe_timestamp: str, fallback: dt.date) -> dt.date:
+    """Which trading session this snapshot belongs to.
+
+    Keying the log by the run date breaks the moment anything runs late or on a
+    weekend: a Saturday job writes a fresh row holding Friday's numbers, and a
+    job that slips past midnight Eastern books the previous close against the
+    next day. GitHub's scheduler has been seen running four to ten hours late,
+    so this has to be handled rather than hoped away.
+
+    CBOE stamps in UTC. Shift to Eastern, and then: anything before the open
+    belongs to the session that already finished, and a weekend belongs to the
+    Friday before it. Five hours rather than four on purpose -- during daylight
+    time that is an hour early, which only matters between midnight and 1am
+    Eastern, and that hour is handled by the pre-open rule anyway.
+
+    Market holidays still key to the previous weekday, so a holiday run repeats
+    the last session's value. The workflow runs Monday to Friday, which leaves
+    roughly nine such days a year.
+    """
+    try:
+        t = dt.datetime.strptime(cboe_timestamp.strip(), "%Y-%m-%d %H:%M:%S")
+    except (ValueError, AttributeError):
+        return fallback
+    et = t - dt.timedelta(hours=5)
+    d = et.date()
+    if (et.hour, et.minute) < (9, 30):      # the session has not opened yet
+        d -= dt.timedelta(days=1)
+    while d.weekday() >= 5:                 # roll a weekend back to the Friday
+        d -= dt.timedelta(days=1)
+    return d
+
+
 def update_iv_history(path: str, today: dt.date, iv30_pct, notes):
     rows = []
     if os.path.exists(path):
@@ -274,12 +332,14 @@ def update_iv_history(path: str, today: dt.date, iv30_pct, notes):
 # build
 # ---------------------------------------------------------------------------
 def build(symbol: str, target_dte: int, width: float, delta_target: float,
-          period: str, hist_dir: str) -> dict:
+          period: str, hist_dir: str, with_prices: bool = True, progress=None) -> dict:
     cfg = VRPConfig()
     notes: list[str] = []
     today = dt.date.today()
+    step = progress or (lambda pct, stage: None)
 
-    raw = fetch_cboe(symbol)
+    step(4, "asking CBOE for the chain")
+    raw = fetch_cboe(symbol, progress)
     data = raw.get("data") or {}
     spot = data.get("current_price") or data.get("close")
     if not spot:
@@ -290,6 +350,7 @@ def build(symbol: str, target_dte: int, width: float, delta_target: float,
         p = parse_occ(o.get("option", ""))
         if p:
             by_exp.setdefault(p[0], {"C": [], "P": []})[p[1]].append((p[2], o))
+    step(68, "sorting expiries")
     exps = sorted(e for e in by_exp if (e - today).days > 0)
     if not exps:
         raise FetchError("CBOE returned no expiries in the future")
@@ -346,6 +407,7 @@ def build(symbol: str, target_dte: int, width: float, delta_target: float,
         if iv30:
             notes.append(f"IV30 taken from the {dte}-day expiry; no pair of expiries brackets 30 days.")
 
+    step(74, "interpolating the delta-25 implied vols")
     iv_put25 = iv_at_delta(puts, delta_target)
     iv_call25 = iv_at_delta(calls, delta_target)
     if iv_put25 is None or iv_call25 is None:
@@ -396,8 +458,16 @@ def build(symbol: str, target_dte: int, width: float, delta_target: float,
             else:
                 notes.append("No two-sided quotes on both legs, so the credit is null.")
 
-    ticker, hist = fetch_prices(symbol, period)
-    earnings_days, past_moves = earnings_info(ticker, hist, notes)
+    # The daily IV log only needs the implied vol, which comes from CBOE. Pulling
+    # prices and earnings from Yahoo as well would add a dependency and a rate
+    # limit to a job whose whole purpose is to append one number per symbol.
+    step(80, "fetching prices" if with_prices else "skipping prices")
+    if with_prices:
+        ticker, hist = fetch_prices(symbol, period)
+        earnings_days, past_moves = earnings_info(ticker, hist, notes)
+        closes = [float(c) for c in hist["Close"]]
+    else:
+        hist, earnings_days, past_moves, closes = None, None, None, []
 
     # The at-the-money straddle prices the expected move over the whole life of
     # the contract. It is only an EARNINGS jump when the report actually falls
@@ -434,7 +504,6 @@ def build(symbol: str, target_dte: int, width: float, delta_target: float,
             "diffusive move, not a jump, and stripping it out would understate the diffusive vol. "
             "impliedMovePct is left null on purpose.")
 
-    closes = [float(c) for c in hist["Close"]]
     trend = None
     if len(closes) >= 50:
         sma50 = sum(closes[-50:]) / 50.0
@@ -442,12 +511,15 @@ def build(symbol: str, target_dte: int, width: float, delta_target: float,
         notes.append(f"Price is {(closes[-1]/sma50 - 1)*100:+.1f}% against its 50-day average "
                      f"({trend}trend).")
 
+    step(93, "updating the IV history")
     iv30_pct = iv30 * 100.0 if iv30 else None
     hist_path = os.path.join(hist_dir, f"{symbol}.csv")
-    iv_rank, iv_pct, iv_lo, iv_hi, n_obs = update_iv_history(hist_path, today, iv30_pct, notes)
+    logged_for = session_date(raw.get("timestamp", ""), today)
+    iv_rank, iv_pct, iv_lo, iv_hi, n_obs = update_iv_history(hist_path, logged_for, iv30_pct, notes)
 
+    step(97, "packing the result")
     ohlc = []
-    for ts, row in hist.iterrows():
+    for ts, row in ([] if hist is None else hist.iterrows()):
         ohlc.append({
             "date": ts.date().isoformat(),
             "open": round(float(row["Open"]), 4),
@@ -466,8 +538,9 @@ def build(symbol: str, target_dte: int, width: float, delta_target: float,
         "sources": {
             "options": "CBOE delayed quotes (cdn.cboe.com)",
             "optionsTimestamp": raw.get("timestamp"),
-            "prices": f"Yahoo Finance via yfinance ({yahoo_symbol(symbol)}, split-adjusted)",
-            "ivHistory": f"{os.path.relpath(hist_path, REPO)} ({n_obs} observations)",
+            "prices": (f"Yahoo Finance via yfinance ({yahoo_symbol(symbol)}, split-adjusted)"
+                       if with_prices else "not fetched (IV log only)"),
+            "ivHistory": f"{os.path.relpath(hist_path, REPO)} ({n_obs} observations, latest logged for {logged_for.isoformat()})",
         },
         "expiry": target.isoformat(),
         "notes": notes,
@@ -555,7 +628,10 @@ def main() -> int:
         pass
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("symbol", help="AAPL, QQQ, or _SPX for index options")
+    ap.add_argument("symbol", nargs="*", help="AAPL, QQQ, or _SPX for index options")
+    ap.add_argument("--watchlist", help="file of symbols, one per line, # for comments")
+    ap.add_argument("--log-only", action="store_true",
+                    help="only append to the IV history; write no JSON (for the daily job)")
     ap.add_argument("--dte", type=int, default=38, help="target days to expiry (default 38)")
     ap.add_argument("--width", type=float, default=5.0, help="spread width to price (default 5)")
     ap.add_argument("--delta", type=float, default=0.25, help="target short delta (default 0.25)")
@@ -565,7 +641,44 @@ def main() -> int:
     ap.add_argument("--analyze", action="store_true", help="also run the engine and print a verdict")
     a = ap.parse_args()
 
-    sym = a.symbol.upper()
+    symbols = [s.upper() for s in a.symbol]
+    if a.watchlist:
+        try:
+            with open(a.watchlist, encoding="utf-8") as f:
+                for line in f:
+                    line = line.split("#")[0].strip()
+                    if line:
+                        symbols.append(line.upper())
+        except OSError as e:
+            print(f"error: cannot read {a.watchlist}: {e}", file=sys.stderr)
+            return 1
+    if not symbols:
+        ap.error("give at least one symbol, or --watchlist")
+
+    # the daily job: append to the IV log for each symbol and keep going if one
+    # of them fails, because a single delisted ticker must not stop the rest
+    if a.log_only or len(symbols) > 1:
+        failures = 0
+        for sym in symbols:
+            try:
+                payload = build(sym, a.dte, a.width, a.delta, a.period,
+                                a.history_dir, with_prices=not a.log_only)
+            except Exception as e:                                # noqa: BLE001
+                failures += 1
+                print(f"  {sym:<8} FAILED  {type(e).__name__}: {e}")
+                continue
+            iv = payload["inputs"]["iv30"]
+            hist = payload["sources"]["ivHistory"]
+            print(f"  {sym:<8} IV30 {('null' if iv is None else format(iv, '.2f') + '%'):<8} {hist}")
+            if not a.log_only:
+                os.makedirs(a.out, exist_ok=True)
+                with open(os.path.join(a.out, f"{sym}_vrp.json"), "w", encoding="utf-8") as f:
+                    json.dump(payload, f, indent=2)
+        print("")
+        print(f"{len(symbols) - failures}/{len(symbols)} symbols logged")
+        return 1 if failures == len(symbols) else 0
+
+    sym = symbols[0]
     try:
         payload = build(sym, a.dte, a.width, a.delta, a.period, a.history_dir)
     except FetchError as e:
