@@ -2064,6 +2064,21 @@ function analyze(){
      decomposition still runs, because the reference engine decomposes whenever
      J is supplied, but the mismatch has to be said out loud. */
   var eDaysForCheck = nval("in-edays");
+  /* The mirror image, and the dangerous one. An event sits inside this expiry
+     -- either the date says so, or the user ticked "trading the event" and so
+     skipped gate G2 -- but no implied move was given, so nothing strips the
+     jump out and the ratio below is raw IV with an earnings jump still in it.
+     Gate G1 then passes on premium a delta hedge cannot collect. This is the
+     failure mode the whole tool exists to catch, so it has to be loud. */
+  var eventInWindow = (eDaysForCheck !== null && eDaysForCheck <= dte) || bval("in-event-intent");
+  if (!event && !eventError && eventInWindow){
+    msgs.push({ level: "warn", loud: true, lead: "Unmeasured earnings jump.",
+      text: (eDaysForCheck !== null
+              ? "Earnings are " + eDaysForCheck + " days out and this expiry runs " + dte + " DTE, so the event falls inside the contract, "
+              : "You marked this as trading the event, ") +
+        "but no implied move was supplied. The ratio below is raw IV with the jump still in it, and a delta hedge " +
+        "cannot collect a jump. Enter the implied move (or the ATM straddle price and the spot) before trusting this verdict." });
+  }
   if (event && eDaysForCheck !== null && eDaysForCheck > dte){
     msgs.push({ level: "warn", text: "Earnings are " + eDaysForCheck + " days out but this expiry is only " +
       dte + " DTE, so the event falls outside the contract. An implied earnings move was still supplied and " +
@@ -2108,6 +2123,11 @@ function analyze(){
   if (eventError){
     decision.caveats.push("The event decomposition failed, so the effective ratio falls back to the raw VRP. " +
       "Treat this verdict as unverified until the implied move and IV are consistent.");
+  }
+  if (!event && !eventError && eventInWindow){
+    decision.caveats.push("An event falls inside this expiry and no implied move was supplied, so the effective " +
+      "ratio is raw IV that still contains the earnings jump. Gate G1 has not been tested against the diffusive " +
+      "premium, which is the only part a delta hedge can collect.");
   }
 
   var ctx = {
@@ -2162,12 +2182,16 @@ function render(ctx){
   /* messages: engine warnings and caveats join the input notes */
   var all = ctx.msgs.slice();
   d.warnings.forEach(function(t){
-    all.push({ level: "warn", text: t, loud: t.indexOf("Clean VRP is negative") >= 0 });
+    var headline = t.indexOf("Clean VRP is negative") >= 0;
+    all.push({ level: "warn", text: t, loud: headline,
+               lead: headline ? "Premium is all event risk." : null });
   });
   d.caveats.forEach(function(t){ all.push({ level: "note", text: t }); });
+  /* loud messages come first: they change the verdict's meaning */
+  all.sort(function(a, b){ return (b.loud ? 1 : 0) - (a.loud ? 1 : 0); });
   $("messages").innerHTML = all.map(function(m){
     return '<div class="msg ' + m.level + (m.loud ? " loud" : "") + '">' +
-      (m.loud ? "<b>Premium is all event risk.</b> " : "") + V.esc(m.text) + "</div>";
+      (m.lead ? "<b>" + V.esc(m.lead) + "</b> " : "") + V.esc(m.text) + "</div>";
   }).join("");
 
   renderCore(ctx);
@@ -3229,6 +3253,52 @@ function runSelfTests(){
     var bad = CONFIG.defaults();
     bad.vrpThin = 0.95;
     assert(CONFIG.validate(bad).some(function(i){ return i.indexOf("G1") >= 0; }), "should mention G1");
+  });
+
+  /* ---------------- the UI guard around an unmeasured jump ----------------
+     This one drives the real page, because the guard lives in analyze() rather
+     than in the engine: an event inside the expiry with no implied move leaves
+     gate G1 judging raw IV that still contains the jump. It was found by
+     loading the sample file and watching the tool hand out ENTER in silence. */
+  test("an event inside the expiry with no implied move is flagged, and clears once J is given", function(){
+    var ids = ["in-iv30", "in-dte", "in-edays", "in-imove", "in-spot", "in-ivp",
+               "in-spread", "in-oi", "in-delta", "in-straddle"];
+    var saved = {};
+    ids.forEach(function(id){ saved[id] = $(id).value; });
+    var savedEvt = $("in-event-intent").checked;
+    var savedData = state.data, savedSrc = state.dataSource, savedStatus = $("data-status").innerHTML;
+    try {
+      setData(SYNTH.toCSV(SYNTH.demoSeries(200, 0.32, 7, 180)), "self-test series");
+      $("in-iv30").value = 38;
+      $("in-dte").value = 38;
+      $("in-edays").value = 25;          // earnings land inside the expiry
+      $("in-imove").value = "";          // but no implied move is given
+      $("in-straddle").value = "";
+      $("in-event-intent").checked = true;   // G2 skipped by the user
+      analyze();
+      var s1 = state.snapshot;
+      assert(s1.effectiveRatioSource === "raw", "source should still be raw, got " + s1.effectiveRatioSource);
+      assert(s1.caveats.some(function(c){ return c.indexOf("still contains the earnings jump") >= 0; }),
+        "the unmeasured-jump caveat is missing");
+      assert(document.querySelectorAll("#messages .msg.loud").length >= 1,
+        "the warning must be loud, not buried in the notes");
+
+      $("in-imove").value = 6;
+      analyze();
+      var s2 = state.snapshot;
+      assert(s2.effectiveRatioSource === "clean", "source should switch to clean, got " + s2.effectiveRatioSource);
+      assert(!s2.caveats.some(function(c){ return c.indexOf("still contains the earnings jump") >= 0; }),
+        "the caveat should clear once the implied move is supplied");
+      assert(s2.effectiveRatio < s1.effectiveRatio,
+        "stripping a jump out must lower the ratio: " + s2.effectiveRatio + " vs " + s1.effectiveRatio);
+    } finally {
+      ids.forEach(function(id){ $(id).value = saved[id]; });
+      $("in-event-intent").checked = savedEvt;
+      state.data = savedData;
+      state.dataSource = savedSrc;
+      $("data-status").innerHTML = savedStatus;
+      analyze();
+    }
   });
 
   /* ---------------- cross-language fixture ---------------- */
