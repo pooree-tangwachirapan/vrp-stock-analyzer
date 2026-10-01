@@ -3204,12 +3204,23 @@ function evaluateSnapshot(meta, csvText, cfg){
     catch (e){ /* inconsistent inputs; the detail view explains it */ }
   }
   var pc = function(x){ return (x === null || x === undefined) ? null : x / 100; };
+
+  // Resolve the trend exactly as the detail view does. Leaving it null here
+  // would quietly cost a point, and a tile that disagrees with the page it
+  // opens is worse than no tile at all.
+  var trendAligned = null;
+  if (i.trendDirection && semi){
+    var favoured = ENGINE.computeLegs(semi, cfg, pc(i.ivPut25), pc(i.ivCall25), iv).favored;
+    if (favoured === ENGINE.Side.SHORT_PUT) trendAligned = i.trendDirection === "up";
+    else if (favoured === ENGINE.Side.SHORT_CALL) trendAligned = i.trendDirection === "down";
+  }
+
   var dec = ENGINE.decide({
     cfg: cfg, vrp: vrp, dte: i.dte, event: event, semi: semi,
     ivPut25: pc(i.ivPut25), ivCall25: pc(i.ivCall25), ivp: i.ivPercentile,
     termStruct: (i.ivM1 && i.ivM2) ? i.ivM1 / i.ivM2 : null,
     earningsDays: i.earningsDays, spreadPct: i.spreadPct, openInterest: i.openInterest,
-    trendAligned: null
+    trendAligned: trendAligned
   });
   return { sym: meta.symbol, dec: dec, iv: iv, rv: fc.value };
 }
@@ -3229,7 +3240,7 @@ function boardCall(dec, mode){
   if (mode === "wait") return "Not yet";
   var f = dec.failedGates && dec.failedGates.length ? dec.failedGates[0].code : null;
   return { G1: "IV too low", G2: "Earnings", G3: "Illiquid",
-           G4: "Backwardation", G5: "Vol too low", G6: "No edge either side" }[f] || "No";
+           G4: "Backwardation", G5: "Vol too low", G6: "No edge either side" }[f] || "Too thin";
 }
 
 function buildBoard(){
