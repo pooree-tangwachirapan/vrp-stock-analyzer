@@ -7,50 +7,57 @@
 <meta name="description" content="Variance Risk Premium analyzer for single-stock option selling. Single file, no build step, no network.">
 <style>
 :root{
-  --bg:#f6f7f9; --surface:#fff; --surface-2:#f0f2f5; --surface-3:#e7eaef;
-  --border:#d8dde4; --border-strong:#b9c1cb;
-  --text:#14171b; --text-dim:#59616d; --text-faint:#858e9a;
-  --accent:#2a63cc; --accent-soft:#e8eefb;
-  --pass:#17784a; --pass-bg:#e4f4ea;
-  --fail:#b81f33; --fail-bg:#fcebed;
-  --warn:#8a5a00; --warn-bg:#fdf3dd;
-  --unknown:#5d6672; --unknown-bg:#e9edf1;
+  --bg:#eef4f7; --surface:#fff; --surface-2:#e7f0f4; --surface-3:#dbe8ee;
+  --border:#c2d8e1; --border-strong:#8fb4c4;
+  --text:#06181f; --text-dim:#416273; --text-faint:#6f8e9d;
+  --accent:#0077a3; --accent-soft:#dff2f9;
+  --pass:#00705a; --pass-bg:#ddf5ee;
+  --fail:#b3002f; --fail-bg:#ffe6ec;
+  --warn:#8a4e00; --warn-bg:#fff0d9;
+  --unknown:#51707e; --unknown-bg:#e4edf2;
+  --glow:none;
   --mono:ui-monospace,"SFMono-Regular","Cascadia Mono",Consolas,"Liberation Mono",monospace;
   --radius:10px;
   --shadow:0 1px 2px rgba(16,20,26,.06),0 2px 8px rgba(16,20,26,.05);
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
-    --bg:#0f1216; --surface:#171b21; --surface-2:#1e232b; --surface-3:#262d36;
-    --border:#2c333d; --border-strong:#3d4653;
-    --text:#e6e9ed; --text-dim:#a3acb9; --text-faint:#7b8694;
-    --accent:#6b9bff; --accent-soft:#1b2740;
-    --pass:#4fc98a; --pass-bg:#11291f;
-    --fail:#ff7b8c; --fail-bg:#2c161b;
-    --warn:#e8b857; --warn-bg:#2b2213;
-    --unknown:#9aa4b1; --unknown-bg:#20262e;
-    --shadow:0 1px 2px rgba(0,0,0,.4),0 2px 8px rgba(0,0,0,.3);
+    --bg:#04080c; --surface:#081219; --surface-2:#0b1a24; --surface-3:#102a38;
+    --border:#0e3a49; --border-strong:#1a6b82;
+    --text:#d9f7ff; --text-dim:#72aec4; --text-faint:#45798d;
+    --accent:#00e5ff; --accent-soft:#06293a;
+    --pass:#00ff9c; --pass-bg:#042a1f;
+    --fail:#ff3b6b; --fail-bg:#2a0713;
+    --warn:#ffa02e; --warn-bg:#2b1703;
+    --unknown:#5f93a8; --unknown-bg:#0c1d27;
+    --glow:0 0 12px rgba(0,229,255,.45);
+    --shadow:0 0 0 1px rgba(0,229,255,.06),0 4px 24px rgba(0,0,0,.6);
   }
 }
 :root[data-theme="dark"]{
-  --bg:#0f1216; --surface:#171b21; --surface-2:#1e232b; --surface-3:#262d36;
-  --border:#2c333d; --border-strong:#3d4653;
-  --text:#e6e9ed; --text-dim:#a3acb9; --text-faint:#7b8694;
-  --accent:#6b9bff; --accent-soft:#1b2740;
-  --pass:#4fc98a; --pass-bg:#11291f;
-  --fail:#ff7b8c; --fail-bg:#2c161b;
-  --warn:#e8b857; --warn-bg:#2b2213;
-  --unknown:#9aa4b1; --unknown-bg:#20262e;
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 2px 8px rgba(0,0,0,.3);
+    --bg:#04080c; --surface:#081219; --surface-2:#0b1a24; --surface-3:#102a38;
+  --border:#0e3a49; --border-strong:#1a6b82;
+  --text:#d9f7ff; --text-dim:#72aec4; --text-faint:#45798d;
+  --accent:#00e5ff; --accent-soft:#06293a;
+  --pass:#00ff9c; --pass-bg:#042a1f;
+  --fail:#ff3b6b; --fail-bg:#2a0713;
+  --warn:#ffa02e; --warn-bg:#2b1703;
+  --unknown:#5f93a8; --unknown-bg:#0c1d27;
+  --glow:0 0 12px rgba(0,229,255,.45);
+  --shadow:0 0 0 1px rgba(0,229,255,.06),0 4px 24px rgba(0,0,0,.6);
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{
   margin:0; background:var(--bg); color:var(--text);
+  background-image:
+    linear-gradient(transparent 95%, color-mix(in srgb, var(--accent) 7%, transparent) 95%),
+    linear-gradient(90deg, transparent 95%, color-mix(in srgb, var(--accent) 7%, transparent) 95%);
+  background-size:44px 44px;
   font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
 }
 h1,h2,h3{margin:0; font-weight:650; letter-spacing:-.01em}
-h1{font-size:1.25rem}
+h1{font-size:1.25rem; text-shadow:var(--glow); letter-spacing:.02em}
 h2{font-size:.95rem}
 h3{font-size:.82rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:.06em}
 a{color:var(--accent)}
@@ -72,7 +79,8 @@ button{
   cursor:pointer;
 }
 button:hover{background:var(--surface-2)}
-button.primary{background:var(--accent); border-color:var(--accent); color:#fff}
+button.primary{background:var(--accent); border-color:var(--accent); color:#04080c; font-weight:700;
+  box-shadow:var(--glow)}
 button.primary:hover{filter:brightness(1.08)}
 button.sm{padding:4px 9px; font-size:.78rem}
 .seg{display:inline-flex; border:1px solid var(--border-strong); border-radius:8px; overflow:hidden}
@@ -154,7 +162,7 @@ aside .card>.bd{padding:12px}
 .metric .v{font-family:var(--mono); font-size:1.28rem; font-weight:650; margin-top:3px; letter-spacing:-.02em}
 .metric .n{font-size:.7rem; color:var(--text-faint); margin-top:2px}
 .metric.head{background:var(--accent-soft); border-color:var(--accent)}
-.metric.head .v{color:var(--accent)}
+.metric.head .v{color:var(--accent); text-shadow:var(--glow)}
 .metric .v.pos{color:var(--pass)} .metric .v.neg{color:var(--fail)}
 
 table{width:100%; border-collapse:collapse; font-size:.83rem}
@@ -243,10 +251,50 @@ footer.disc{margin-top:22px; padding:14px 16px; border-radius:var(--radius);
 footer.disc b{color:var(--text)}
 
 .prog{height:8px; background:var(--surface-3); border-radius:999px; overflow:hidden}
-.prog .bar{height:100%; width:0; background:var(--accent); border-radius:999px; transition:width .2s ease}
+.prog .bar{height:100%; width:0; background:var(--accent); border-radius:999px; transition:width .2s ease;
+  box-shadow:var(--glow)}
 .proglbl{display:flex; justify-content:space-between; gap:10px; font-family:var(--mono);
   font-size:.7rem; color:var(--text-dim); margin-top:4px}
 .proglbl .pct{font-weight:700; color:var(--accent)}
+
+/* The answer. Everything else on the page is evidence for this box. */
+.answer{
+  margin-top:16px; padding:22px 24px; border-radius:14px;
+  border:1px solid var(--border-strong); background:var(--surface);
+  box-shadow:var(--shadow);
+  display:grid; grid-template-columns:minmax(0,1fr) auto; gap:18px 28px; align-items:center;
+  position:relative; overflow:hidden;
+}
+.answer:before{
+  content:""; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--border-strong);
+}
+.answer .a-verdict{
+  font-size:2.6rem; line-height:1.05; font-weight:800; letter-spacing:-.02em;
+  text-transform:uppercase;
+}
+.answer .a-why{margin-top:8px; font-size:.95rem; color:var(--text-dim); max-width:62ch}
+.answer .a-sub{font-size:.8rem; color:var(--text-faint); margin-top:6px}
+.answer .a-nums{display:flex; gap:22px; flex-wrap:wrap; justify-content:flex-end}
+.answer .a-num{text-align:right}
+.answer .a-num .k{font-size:.64rem; letter-spacing:.1em; text-transform:uppercase; color:var(--text-faint)}
+.answer .a-num .v{font-family:var(--mono); font-size:1.5rem; font-weight:700; line-height:1.2}
+@media (max-width:760px){
+  .answer{grid-template-columns:1fr}
+  .answer .a-nums{justify-content:flex-start}
+  .answer .a-verdict{font-size:2rem}
+}
+.answer[data-a="sell"]{border-color:var(--pass)}
+.answer[data-a="sell"]:before{background:var(--pass); box-shadow:0 0 18px var(--pass)}
+.answer[data-a="sell"] .a-verdict{color:var(--pass); text-shadow:0 0 18px color-mix(in srgb, var(--pass) 55%, transparent)}
+.answer[data-a="half"]{border-color:var(--warn)}
+.answer[data-a="half"]:before{background:var(--warn); box-shadow:0 0 18px var(--warn)}
+.answer[data-a="half"] .a-verdict{color:var(--warn); text-shadow:0 0 18px color-mix(in srgb, var(--warn) 55%, transparent)}
+.answer[data-a="wait"]:before{background:var(--unknown)}
+.answer[data-a="wait"] .a-verdict{color:var(--text-dim)}
+.answer[data-a="no"]{border-color:var(--fail)}
+.answer[data-a="no"]:before{background:var(--fail); box-shadow:0 0 18px var(--fail)}
+.answer[data-a="no"] .a-verdict{color:var(--fail); text-shadow:0 0 18px color-mix(in srgb, var(--fail) 55%, transparent)}
+.answer[data-a="none"] .a-verdict{color:var(--text-faint); font-size:1.5rem}
 
 .flexrow{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
 .muted{color:var(--text-faint); font-size:.78rem}
@@ -283,9 +331,13 @@ footer.disc b{color:var(--text)}
 
 <div class="wrap">
 
-  <section id="banner" class="banner" data-v="INSUFFICIENT DATA">
-    <div class="verdict">Waiting for input</div>
-    <div class="why">Load a price history and enter at least IV30 to get a verdict.</div>
+  <section id="banner" class="answer" data-a="none">
+    <div>
+      <div class="a-verdict" id="a-verdict">Enter a ticker</div>
+      <div class="a-why" id="a-why">Type a symbol in the box on the left and press Calculate VRP.</div>
+      <div class="a-sub" id="a-sub"></div>
+    </div>
+    <div class="a-nums" id="a-nums"></div>
   </section>
 
   <div class="cols">
@@ -2198,10 +2250,13 @@ function analyze(){
 /* ---------------------------- rendering -------------------------------- */
 function renderInsufficient(missing, msgs){
   var b = $("banner");
-  b.setAttribute("data-v", "INSUFFICIENT DATA");
-  b.innerHTML = '<div class="verdict">Insufficient data</div>' +
-    '<span class="pill unknown">needs input</span>' +
-    '<div class="why">Still missing: <b>' + V.esc(missing.join(", ")) + "</b>.</div>";
+  b.setAttribute("data-a", "none");
+  b.innerHTML = "<div>" +
+    '<div class="a-verdict">No answer yet</div>' +
+    '<div class="a-why">Still needs: <b>' + V.esc(missing.join(", ")) + "</b>." +
+    (missing.indexOf("price history") >= 0
+      ? " Type a ticker on the left and press Calculate VRP, and all of it arrives at once."
+      : "") + "</div></div>";
   renderMessages(msgs);
   ["card-core", "card-est", "card-side", "card-event", "card-gates", "card-score", "card-plan", "card-conf"]
     .forEach(function(id){ show(id, false); });
@@ -2221,16 +2276,7 @@ function render(ctx){
 
   var d = ctx.decision;
 
-  /* banner */
-  var b = $("banner");
-  b.setAttribute("data-v", d.verdict);
-  var sideTxt = d.side === "NEITHER" ? "" : '<span class="pill accent">' + V.esc(d.side.replace("_", " ")) + "</span>";
-  b.innerHTML =
-    '<div class="verdict">' + V.esc(d.verdict) + "</div>" + sideTxt +
-    '<span class="pill">score ' + d.score + "/" + d.maxScore + "</span>" +
-    '<span class="pill ' + (d.confidence === "High" ? "pass" : d.confidence === "Medium" ? "warn" : "unknown") +
-      '">confidence ' + V.esc(d.confidence) + "</span>" +
-    '<div class="why">' + V.esc(d.reason) + "</div>";
+  renderAnswer(ctx);
 
   /* messages: engine warnings and caveats join the input notes */
   var all = ctx.msgs.slice();
@@ -2255,6 +2301,68 @@ function render(ctx){
   renderScore(ctx);
   renderPlan(ctx);
   renderConfidence(ctx);
+}
+
+/* ----------------------------- the answer -------------------------------
+   A verdict of "HALF SIZE, SHORT_PUT, score 6/10" is analyst shorthand. The
+   question someone actually arrives with is whether to sell something, which
+   side, and why. This turns the engine's output into that sentence, keeping
+   the numbers beside it so the claim can be checked rather than trusted. */
+var GATE_PLAIN = {
+  G1: "Implied vol is not above what this name has actually been doing, so there is no premium worth collecting.",
+  G2: "Earnings land inside this expiry. Selling now bets on the size of a jump, not on volatility being overpriced.",
+  G3: "The option is too illiquid — you would pay the spread to get in and again to get out.",
+  G4: "Near-dated vol sits above later-dated vol, which usually means the market is bracing for something soon.",
+  G5: "Implied vol is near the bottom of its own range, so the premium does not cover the slippage.",
+  G6: "The side we would sell has no edge of its own once the stock's own up and down moves are accounted for."
+};
+
+function renderAnswer(ctx){
+  var d = ctx.decision, el = $("banner");
+  var VD = ENGINE.Verdict, SD = ENGINE.Side;
+  var mode, headline, why, sub = "";
+
+  if (d.verdict === VD.ENTER || d.verdict === VD.HALF_SIZE){
+    var half = d.verdict === VD.HALF_SIZE;
+    mode = half ? "half" : "sell";
+    headline = (d.side === SD.SHORT_PUT) ? "Sell puts" : "Sell calls";
+    why = (half ? "Half size. " : "Full size. ") +
+      "Implied vol is " + V.num(d.effectiveRatio, 2) + "× what the stock is actually realizing" +
+      (d.effectiveRatioSource === "clean" ? ", once the earnings jump is taken out" : "") + ".";
+    sub = (d.side === SD.SHORT_CALL)
+      ? "Covered by stock, or as a defined-risk call spread. Never naked."
+      : "As a put credit spread, or cash-secured if you can cover 100 shares.";
+  } else {
+    var failed = d.failedGates && d.failedGates.length ? d.failedGates[0] : null;
+    if (d.verdict === VD.DO_NOT_ENTER){ mode = "no"; headline = "Do not sell"; }
+    else { mode = "wait"; headline = "Not yet"; }
+    why = failed
+      ? (GATE_PLAIN[failed.code] || failed.detail)
+      : "Nothing is wrong with it, the case is just not strong enough: " + d.score + " out of " + d.maxScore + ".";
+    if (d.unknownGates && d.unknownGates.length){
+      sub = d.unknownGates.length + " check" + (d.unknownGates.length > 1 ? "s" : "") +
+            " could not be run for want of data, so this is not the full picture.";
+    }
+  }
+
+  var nums = [
+    ["VRP", V.num(d.effectiveRatio, 2) + "×", d.effectiveRatio >= 1 ? "pos" : "neg"],
+    ["Implied", V.pct(ctx.vrp.iv, 1), ""],
+    ["Realized", V.pct(ctx.vrp.rv, 1), ""],
+    ["Score", d.score + "/" + d.maxScore, ""],
+    ["Confidence", d.confidence, ""]
+  ];
+  el.setAttribute("data-a", mode);
+  el.innerHTML =
+    "<div>" +
+      '<div class="a-verdict">' + V.esc(headline) + "</div>" +
+      '<div class="a-why">' + V.esc(why) + "</div>" +
+      (sub ? '<div class="a-sub">' + V.esc(sub) + "</div>" : "") +
+    "</div>" +
+    '<div class="a-nums">' + nums.map(function(n){
+      return '<div class="a-num"><div class="k">' + n[0] + '</div><div class="v ' + n[2] + '">' +
+        V.esc(n[1]) + "</div></div>";
+    }).join("") + "</div>";
 }
 
 function renderCore(ctx){
@@ -2973,7 +3081,7 @@ function wire(){
   $("disclaimer-text").textContent = CONFIG.DISCLAIMER;
 
   var saved = "auto";
-  try { saved = localStorage.getItem("vrp-theme") || "auto"; } catch (e){ saved = "auto"; }
+  try { saved = localStorage.getItem("vrp-theme") || "dark"; } catch (e){ saved = "auto"; }
   applyTheme(saved);
   $("theme-seg").addEventListener("click", function(ev){
     var b = ev.target.closest("button[data-theme-set]");
