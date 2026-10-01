@@ -218,11 +218,17 @@ def main() -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--no-browser", action="store_true")
+    ap.add_argument("--lan", action="store_true",
+                    help="also answer other devices on your network, so a phone can use it")
     a = ap.parse_args()
 
-    # 127.0.0.1 rather than 0.0.0.0: this is a helper for you, not for the network
+    # Loopback by default: this is a helper for you, not for the network. --lan
+    # opens it to the rest of the Wi-Fi so a phone can reach it, which is fine on
+    # a home network and a bad idea on a shared one -- it serves this folder and
+    # will fetch quotes for anyone who asks.
+    host = "0.0.0.0" if a.lan else "127.0.0.1"
     try:
-        srv = ThreadingHTTPServer(("127.0.0.1", a.port), Handler)
+        srv = ThreadingHTTPServer((host, a.port), Handler)
     except OSError as e:
         print(f"Could not listen on port {a.port}: {e}", file=sys.stderr)
         print("Something else is probably using it. Try --port 8766.", file=sys.stderr)
@@ -231,6 +237,19 @@ def main() -> int:
     url = f"http://127.0.0.1:{a.port}/index.html"
     print("VRP Stock Analyzer")
     print(f"  {url}")
+    if a.lan:
+        import socket as _s
+        probe = _s.socket(_s.AF_INET, _s.SOCK_DGRAM)
+        try:
+            probe.connect(("10.255.255.255", 1))   # nothing is sent; this just picks the route
+            lan_ip = probe.getsockname()[0]
+        except OSError:
+            lan_ip = None
+        finally:
+            probe.close()
+        if lan_ip:
+            print(f"  http://{lan_ip}:{a.port}/index.html   <- open this on your phone, same Wi-Fi")
+        print("  Open to your local network. Fine at home, not on shared Wi-Fi.")
     print("  Type a ticker, press Calculate VRP. Ctrl+C to stop.\n")
     if not a.no_browser:
         threading.Timer(0.6, lambda: webbrowser.open(url)).start()
