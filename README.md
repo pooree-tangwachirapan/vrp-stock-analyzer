@@ -47,7 +47,25 @@ If `1.15` or `0.50` appears in the core, that is a bug, and a self-test fails on
 
 ## Using it
 
-**Price history.** CSV with `Date, Open, High, Low, Close`. Column names are case insensitive, `Adj Close` is accepted in place of `Close`, and rows are sorted by date for you. At least 21 rows are required; below 130 the HAR blend renormalizes its weights and says so. With only a `Close` column you still get close-to-close RV, but no Parkinson, Garman-Klass, Yang-Zhang or gap ratio.
+**The quick way.** Run the fetcher once and load the file it writes:
+
+```bash
+python fetch/fetch_inputs.py AAPL --analyze
+```
+
+That fills seventeen of the nineteen fields from CBOE's public delayed-quote
+feed and Yahoo's price history, including the delta-25 implied vols, the term
+structure, open interest, the spread, and the size of past earnings moves. Open
+the analyzer, press **Load inputs JSON**, and pick `fetch/out/AAPL_vrp.json`.
+The page itself still makes no network call: fetching happens in the script,
+analysis happens offline. See [fetch/README.md](fetch/README.md).
+
+The two it cannot fill are IV Rank and IV Percentile, because no free source
+publishes a history of implied vol. The fetcher logs today's at-the-money IV on
+every run and they appear once enough days have accumulated; type them in from
+your broker in the meantime.
+
+**Price history by hand.** CSV with `Date, Open, High, Low, Close`. Column names are case insensitive, `Adj Close` is accepted in place of `Close`, and rows are sorted by date for you. At least 21 rows are required; below 130 the HAR blend renormalizes its weights and says so. With only a `Close` column you still get close-to-close RV, but no Parkinson, Garman-Klass, Yang-Zhang or gap ratio.
 
 `sample/sample_ohlc.csv` is 260 rows of **synthetic** data for trying the tool out. It is not a real stock. The "Load synthetic demo" button generates a similar series in the page.
 
@@ -91,7 +109,12 @@ pip install -r requirements.txt
 python -m pytest -v
 ```
 
-`docs` for the original specification: [VRP_CodeMode_Prompt.md](VRP_CodeMode_Prompt.md) (Thai).
+## Documents
+
+- [VRP_CodeMode_Prompt.md](VRP_CodeMode_Prompt.md) — the original specification (Thai)
+- [docs/MARKET_DATA_APIS.md](docs/MARKET_DATA_APIS.md) — what each option-data source
+  actually returns, measured: CBOE, Webull, Yahoo, and why the first one won
+- [fetch/README.md](fetch/README.md) — the fetcher
 
 ## Where the numbers come from
 

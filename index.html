@@ -286,10 +286,16 @@ footer.disc b{color:var(--text)}
 
     <aside class="noprint">
       <div class="card">
-        <div class="hd"><h2>Price history</h2></div>
+        <div class="hd"><h2>Data</h2></div>
         <div class="bd">
           <div class="f">
-            <label for="csv-file">CSV file &mdash; Date, Open, High, Low, Close</label>
+            <label for="json-file">Inputs JSON &mdash; fills everything at once</label>
+            <input type="file" id="json-file" accept=".json,application/json">
+            <span class="hint">Produced by <code>fetch/fetch_inputs.py</code>. Read locally; the page never fetches.</span>
+          </div>
+          <div id="json-status" class="muted" style="margin-bottom:10px"></div>
+          <div class="f">
+            <label for="csv-file">&hellip; or a CSV file &mdash; Date, Open, High, Low, Close</label>
             <input type="file" id="csv-file" accept=".csv,.txt,text/csv,text/plain">
             <span class="hint">Read locally with FileReader. Nothing is uploaded.</span>
           </div>
@@ -373,9 +379,11 @@ footer.disc b{color:var(--text)}
               <label for="in-trend">Trend vs short side</label>
               <select id="in-trend">
                 <option value="">Unknown</option>
+                <option value="auto">Auto &mdash; from the 50-day trend</option>
                 <option value="yes">Aligned</option>
                 <option value="no">Against</option>
               </select>
+              <span class="hint" id="trend-hint"></span>
             </div>
             <label class="chk"><input type="checkbox" id="in-event-intent"><span>I am deliberately trading the event (skips gate G2)</span></label>
             <label class="chk"><input type="checkbox" id="in-ts-explained"><span>Backwardation has a known cause (skips gate G4)</span></label>
@@ -1919,7 +1927,8 @@ var ENGINE = buildEngine(CORE);
 var SYNTH = buildSynth();
 var V = buildView();
 
-var state = { cfg: CONFIG.defaults(), data: null, dataSource: "", snapshot: null };
+var state = { cfg: CONFIG.defaults(), data: null, dataSource: "", snapshot: null,
+              trendDirection: null, loaded: null };
 
 function $(id){ return document.getElementById(id); }
 function sval(id){ var e = $(id); return e ? String(e.value).trim() : ""; }
@@ -2107,8 +2116,31 @@ function analyze(){
     catch (e){ msgs.push({ level: "warn", text: e.message }); }
   }
 
-  /* --- decision --- */
+  /* --- trend ---
+     "auto" is not a guess. The 50-day direction is a fact from the price data,
+     and which side the engine favours is computed by the same function the
+     engine itself uses, so alignment is just those two facts combined. If no
+     side can be chosen, it stays unknown rather than defaulting either way. */
   var trendSel = sval("in-trend");
+  var trendAligned = trendSel === "yes" ? true : (trendSel === "no" ? false : null);
+  var trendHint = "";
+  if (trendSel === "auto"){
+    if (!state.trendDirection){
+      trendHint = "No trend direction loaded. Load an inputs JSON, or pick a value by hand.";
+    } else if (!semi){
+      trendHint = "Needs daily prices before a side can be chosen.";
+    } else {
+      var preview = ENGINE.computeLegs(semi, cfg, iv.put25, iv.call25, iv.iv30);
+      if (preview.favored === ENGINE.Side.SHORT_PUT) trendAligned = state.trendDirection === "up";
+      else if (preview.favored === ENGINE.Side.SHORT_CALL) trendAligned = state.trendDirection === "down";
+      trendHint = "50-day trend is " + state.trendDirection + ", semivariance favours " +
+        preview.favored.replace("_", " ").toLowerCase() + " → " +
+        (trendAligned === null ? "undecided" : trendAligned ? "aligned" : "against");
+    }
+  }
+  if ($("trend-hint")) $("trend-hint").textContent = trendHint;
+
+  /* --- decision --- */
   var decision = ENGINE.decide({
     cfg: cfg, vrp: vrp, dte: dte, event: event, semi: semi,
     ivPut25: iv.put25, ivCall25: iv.call25,
@@ -2117,7 +2149,7 @@ function analyze(){
     spreadPct: nval("in-spread"), openInterest: nval("in-oi"),
     rvYz: (est.yz === undefined ? null : est.yz),
     requestedSide: sval("in-side"),
-    trendAligned: trendSel === "yes" ? true : (trendSel === "no" ? false : null)
+    trendAligned: trendAligned
   });
 
   if (eventError){
@@ -2715,6 +2747,75 @@ function applyTheme(mode){
   try { localStorage.setItem("vrp-theme", mode); } catch (e){ /* private mode, blocked storage */ }
 }
 
+/* --------------------------- inputs JSON loader --------------------------
+   Reads the file fetch/fetch_inputs.py writes. The page still makes no network
+   call of its own: this is a local file handed over by the user.
+
+   A null in that file means the value could not be sourced. It clears the
+   field so the analyzer shows N/A and leaves the matching gate UNKNOWN -- it
+   is never turned into a zero. */
+var JSON_FIELD_MAP = {
+  iv30: "in-iv30", ivPut25: "in-ivput25", ivCall25: "in-ivcall25",
+  ivM1: "in-ivm1", ivM2: "in-ivm2", ivPercentile: "in-ivp",
+  iv1yLow: "in-ivmin", iv1yHigh: "in-ivmax",
+  spot: "in-spot", dte: "in-dte", spreadPct: "in-spread", openInterest: "in-oi",
+  shortDelta: "in-delta", earningsDays: "in-edays", impliedMovePct: "in-imove",
+  spreadWidth: "in-width", credit: "in-credit"
+};
+
+function loadInputsJSON(text, filename){
+  var j;
+  try { j = JSON.parse(text); }
+  catch (e){ throw new Error("That file is not valid JSON: " + e.message); }
+  if (!j || j.schema !== "vrp-inputs/1")
+    throw new Error('Unrecognised file. Expected "schema": "vrp-inputs/1" from fetch_inputs.py.');
+  if (!j.ohlc || !j.ohlc.length)
+    throw new Error("The file carries no price rows.");
+
+  var rows = ["Date,Open,High,Low,Close"];
+  for (var i = 0; i < j.ohlc.length; i++){
+    var r = j.ohlc[i];
+    rows.push([r.date, r.open, r.high, r.low, r.close].join(","));
+  }
+  var label = (j.symbol || filename) + " — " + ((j.sources && j.sources.prices) || "inputs JSON");
+  setData(rows.join("\n"), label);
+  if (!state.data) throw new Error("The price rows in that file did not pass validation; see above.");
+
+  var inp = j.inputs || {};
+  var filled = 0, missing = [];
+  Object.keys(JSON_FIELD_MAP).forEach(function(key){
+    var el = $(JSON_FIELD_MAP[key]);
+    if (!el) return;
+    var v = inp[key];
+    if (v === null || v === undefined){ el.value = ""; missing.push(key); }
+    else { el.value = v; filled++; }
+  });
+  $("in-hmoves").value = (inp.historicalMoves && inp.historicalMoves.length)
+    ? inp.historicalMoves.join(", ") : "";
+  if (inp.historicalMoves && inp.historicalMoves.length) filled++; else missing.push("historicalMoves");
+
+  state.trendDirection = inp.trendDirection || null;
+  $("in-trend").value = state.trendDirection ? "auto" : "";
+  $("in-side").value = "";
+  $("in-event-intent").checked = false;
+  $("in-ts-explained").checked = false;
+  $("csv-paste").value = "";
+  state.loaded = j;
+
+  var bits = ["<b>" + V.esc(j.symbol || filename) + "</b> " +
+              V.esc(filled + " of " + (filled + missing.length) + " fields filled")];
+  if (j.expiry) bits.push("expiry " + V.esc(j.expiry) + (inp.dte ? " (" + inp.dte + " DTE)" : ""));
+  if (j.sources && j.sources.optionsTimestamp) bits.push("options stamped " + V.esc(j.sources.optionsTimestamp));
+  if (missing.length) bits.push('<span style="color:var(--warn)">not sourced: ' + V.esc(missing.join(", ")) + "</span>");
+  $("json-status").innerHTML = bits.join("<br>");
+
+  analyze();
+  if (j.notes && j.notes.length){
+    var extra = j.notes.map(function(n){ return '<div class="msg note">' + V.esc(n) + "</div>"; }).join("");
+    $("messages").insertAdjacentHTML("beforeend", extra);
+  }
+}
+
 /* ------------------------------ demo input ------------------------------ */
 function loadDemo(){
   var s = SYNTH.demoSeries(260, 0.32, 20260101, 180);
@@ -2754,7 +2855,7 @@ function wire(){
   var sidebar = document.querySelector("aside");
   ["input", "change"].forEach(function(evt){
     sidebar.addEventListener(evt, function(ev){
-      if (ev.target.id === "csv-file") return;
+      if (ev.target.id === "csv-file" || ev.target.id === "json-file") return;
       if (ev.target.id === "csv-paste"){
         var text = ev.target.value;
         if (text.trim() === ""){
@@ -2780,11 +2881,29 @@ function wire(){
     reader.readAsText(file);
   });
 
+  $("json-file").addEventListener("change", function(ev){
+    var file = ev.target.files && ev.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      try { loadInputsJSON(String(reader.result), file.name); }
+      catch (e){
+        $("json-status").innerHTML = '<span style="color:var(--fail)">' + V.esc(e.message) + "</span>";
+      }
+    };
+    reader.onerror = function(){
+      $("json-status").innerHTML = '<span style="color:var(--fail)">Could not read that file.</span>';
+    };
+    reader.readAsText(file);
+  });
+
   $("btn-demo").addEventListener("click", loadDemo);
   $("btn-clear-data").addEventListener("click", function(){
-    state.data = null; state.dataSource = "";
+    state.data = null; state.dataSource = ""; state.trendDirection = null; state.loaded = null;
     $("csv-paste").value = "";
     $("csv-file").value = "";
+    $("json-file").value = "";
+    $("json-status").textContent = "";
     $("data-status").textContent = "No price data loaded.";
     analyze();
   });
@@ -3297,6 +3416,67 @@ function runSelfTests(){
       state.data = savedData;
       state.dataSource = savedSrc;
       $("data-status").innerHTML = savedStatus;
+      analyze();
+    }
+  });
+
+  /* ---------------- the inputs JSON loader ---------------- */
+  test("the inputs JSON loader fills what is there and clears what is null", function(){
+    var ids = ["in-iv30", "in-ivput25", "in-ivcall25", "in-ivm1", "in-ivm2", "in-ivp",
+               "in-ivmin", "in-ivmax", "in-spot", "in-dte", "in-spread", "in-oi",
+               "in-delta", "in-edays", "in-imove", "in-width", "in-credit", "in-hmoves", "in-trend"];
+    var saved = {};
+    ids.forEach(function(id){ saved[id] = $(id).value; });
+    var savedData = state.data, savedSrc = state.dataSource, savedDir = state.trendDirection;
+    var savedStatus = $("data-status").innerHTML, savedJson = $("json-status").innerHTML;
+    try {
+      var s = SYNTH.demoSeries(200, 0.32, 3, 180);
+      var ohlc = [];
+      var day = new Date(Date.UTC(2025, 0, 1));
+      for (var i = 0; i < s.n; i++){
+        ohlc.push({ date: day.toISOString().slice(0, 10),
+                    open: +s.open[i].toFixed(4), high: +s.high[i].toFixed(4),
+                    low: +s.low[i].toFixed(4), close: +s.close[i].toFixed(4) });
+        day.setUTCDate(day.getUTCDate() + 1);
+      }
+      var payload = {
+        schema: "vrp-inputs/1", symbol: "TEST", expiry: "2026-11-06",
+        sources: { prices: "self-test", optionsTimestamp: "2026-10-01 10:00:00" },
+        notes: ["a note from the fetcher"],
+        inputs: {
+          iv30: 38, ivPut25: 41, ivCall25: 36, ivM1: 38, ivM2: 39,
+          ivPercentile: null, iv1yLow: null, iv1yHigh: null,     // not sourced yet
+          spot: 190.5, dte: 36, spreadPct: 3.5, openInterest: 1800,
+          shortDelta: 0.2574, earningsDays: 70, impliedMovePct: null,
+          historicalMoves: [5.1, 7.4, 3.9], spreadWidth: 5, credit: 1.09,
+          trendDirection: "up"
+        },
+        ohlc: ohlc
+      };
+      loadInputsJSON(JSON.stringify(payload), "TEST_vrp.json");
+
+      assert($("in-iv30").value === "38", "iv30 should be filled, got " + $("in-iv30").value);
+      assert($("in-oi").value === "1800", "open interest should be filled");
+      assert($("in-hmoves").value === "5.1, 7.4, 3.9", "past moves should be filled");
+      /* the whole point: a null must clear the field, never become a zero */
+      assert($("in-ivp").value === "", "a null IV percentile must clear the field, got " + $("in-ivp").value);
+      assert($("in-imove").value === "", "a null implied move must clear the field");
+      assert(state.data && state.data.rows === 200, "price rows should load, got " + (state.data && state.data.rows));
+      assert(state.trendDirection === "up", "trend direction should be kept");
+      assert($("in-trend").value === "auto", "the trend selector should switch to auto");
+
+      var snap = state.snapshot;
+      assert(snap, "an analysis should have run");
+      assert(snap.gates.some(function(g){ return g.code === "G5" && g.result === "UNKNOWN"; }),
+        "with no IV percentile, G5 must stay UNKNOWN rather than passing on a zero");
+
+      assertThrows(function(){ loadInputsJSON('{"schema":"something-else"}', "x.json"); },
+        "vrp-inputs/1", "a foreign schema must be refused");
+    } finally {
+      ids.forEach(function(id){ $(id).value = saved[id]; });
+      state.data = savedData; state.dataSource = savedSrc; state.trendDirection = savedDir;
+      $("data-status").innerHTML = savedStatus;
+      $("json-status").innerHTML = savedJson;
       analyze();
     }
   });
