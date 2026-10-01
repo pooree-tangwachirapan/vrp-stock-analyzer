@@ -2765,31 +2765,33 @@ function applyTheme(mode){
    with `python vrp.py`. When that helper is not there the box stays disabled
    and the file-based flow below is unchanged, which is what happens on GitHub
    Pages and on file://. The analyzer still makes no third-party request. */
-function setCalcEnabled(on, hint){
-  $("btn-calc").disabled = !on;
-  $("in-symbol").disabled = !on;
-  $("calc-hint").innerHTML = hint;
-}
+var HELPER_DOWN = "The local helper did not answer. Start it with " +
+  "<code>python vrp.py</code> in the project folder, then press Calculate again. " +
+  "No need to reload the page.";
 
+/* The ticker box is never disabled. Locking a text field because a background
+   probe has not answered yet is hostile: you cannot even type the symbol, and
+   starting the helper afterwards leaves it stuck until a reload. Type whenever
+   you like; if the helper is not there, pressing the button says so and
+   re-checks, so starting it is enough. */
 function probeHelper(){
-  setCalcEnabled(false, "looking for the local helper…");
+  $("calc-hint").innerHTML = "checking for the local helper…";
   var settled = false;
   function offline(){
     if (settled) return;
     settled = true;
-    setCalcEnabled(false,
-      "Not running. Start it with <code>python vrp.py</code> in the project folder and reload, " +
-      "or load a CSV / inputs JSON below.");
+    $("calc-hint").innerHTML = "Helper not running — press Calculate once it is up, " +
+      "or load a CSV / inputs JSON below.";
   }
   function online(){
+    if (settled) return;
     settled = true;
-    setCalcEnabled(true, "Helper is running. Chain from CBOE, prices from Yahoo.");
+    $("calc-hint").innerHTML = "Helper is running. Chain from CBOE, prices from Yahoo.";
   }
   try {
     fetch("api/health", { cache: "no-store" }).then(function(r){
       if (!r.ok) return offline();
       return r.json().then(function(j){
-        if (settled) return;
         if (j && j.service === "vrp-local-helper") online(); else offline();
       }).catch(offline);
     }).catch(offline);
@@ -2814,16 +2816,21 @@ function calculate(){
         { cache: "no-store" })
     .then(function(r){ return r.text().then(function(t){ return { ok: r.ok, text: t }; }); })
     .then(function(res){
-      if (!res.ok){
-        var msg = res.text;
-        try { msg = JSON.parse(res.text).error || msg; } catch (e){ /* keep the raw body */ }
-        throw new Error(msg);
-      }
+      var data = null;
+      try { data = JSON.parse(res.text); } catch (e){ /* not JSON: not our helper */ }
+      if (!data) throw new Error("__down__");          // a 404 page, or nothing listening
+      if (!res.ok) throw new Error(data.error || ("HTTP " + res.status));
       loadInputsJSON(res.text, sym);
       $("calc-status").innerHTML = "";
     })
     .catch(function(e){
-      $("calc-status").innerHTML = '<span style="color:var(--fail)">' + V.esc(e.message) + "</span>";
+      var msg = e && e.message ? e.message : String(e);
+      if (msg === "__down__" || /failed to fetch|networkerror|load failed/i.test(msg)){
+        $("calc-status").innerHTML = '<span style="color:var(--fail)">' + HELPER_DOWN + "</span>";
+        probeHelper();
+      } else {
+        $("calc-status").innerHTML = '<span style="color:var(--fail)">' + V.esc(msg) + "</span>";
+      }
     })
     .then(function(){
       btn.disabled = false;

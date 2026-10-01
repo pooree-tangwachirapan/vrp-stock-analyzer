@@ -138,6 +138,34 @@ def contract_at_delta(rows, target):
     return k, o
 
 
+def tradeable_contract(rows, target, dmin, dmax, oi_min):
+    """Pick the strike to actually trade, not merely the closest delta.
+
+    The calibration layer hands over a delta BAND, so every strike inside it is
+    a legitimate short leg. Choosing purely by nearest delta lands on dead
+    strikes: on SPX it picked 7420 with 7 contracts of open interest while
+    7425, five thousandths of a delta away, carried 192. Gate G3 then rejected
+    a trade that was perfectly available one strike over.
+
+    So: stay inside the band, require the open interest the gate will demand
+    anyway, and among those take the one closest to the target delta. That
+    keeps the trade's character while making sure there is a way out of it.
+    """
+    in_band = [(k, o) for k, o in rows
+               if o.get("delta") and dmin <= abs(o["delta"]) <= dmax]
+    liquid = [(k, o) for k, o in in_band if (o.get("open_interest") or 0) >= oi_min]
+    if liquid:
+        k, o = min(liquid, key=lambda x: abs(abs(x[1]["delta"]) - target))
+        return k, o, None
+    if in_band:
+        k, o = min(in_band, key=lambda x: abs(abs(x[1]["delta"]) - target))
+        return k, o, (f"No strike between delta {dmin:.2f} and {dmax:.2f} carries {oi_min} open "
+                      "contracts, so the nearest delta was used and gate G3 will say so.")
+    k, o = contract_at_delta(rows, target)
+    return k, o, (f"No strike fell between delta {dmin:.2f} and {dmax:.2f}; the nearest delta "
+                  "outside the band was used.")
+
+
 def is_monthly(d: dt.date) -> bool:
     """Third Friday, the expiry that carries the deepest open interest."""
     return d.weekday() == 4 and 15 <= d.day <= 21
@@ -266,7 +294,37 @@ def build(symbol: str, target_dte: int, width: float, delta_target: float,
     if not exps:
         raise FetchError("CBOE returned no expiries in the future")
 
-    target = min(exps, key=lambda e: abs((e - today).days - target_dte))
+    # Choosing the expiry is the same problem as choosing the strike. The
+    # calibration layer hands over a DTE BAND, so anything inside it is
+    # allowed, and inside the band an expiry nobody has traded is not really an
+    # option. SPX lists Monday weeklies that can sit three days nearer the
+    # target with zero open interest on every single strike, while the monthly
+    # just beyond carries thousands. So: stay in the band, keep only expiries
+    # where some strike in the delta band holds the open interest gate G3 will
+    # demand, then take the one closest to the requested DTE.
+    def band_depth(e):
+        best = 0
+        for _, o in by_exp[e]["P"]:
+            if o.get("delta") and cfg.delta_min <= abs(o["delta"]) <= cfg.delta_max:
+                best = max(best, o.get("open_interest") or 0)
+        return best
+
+    in_band = [e for e in exps if cfg.dte_min <= (e - today).days <= cfg.dte_max]
+    tradeable = [e for e in in_band if band_depth(e) >= cfg.oi_min]
+    nearest = min(exps, key=lambda e: abs((e - today).days - target_dte))
+    if tradeable:
+        target = min(tradeable, key=lambda e: abs((e - today).days - target_dte))
+        if target != nearest:
+            notes.append(
+                f"Skipped the {(nearest - today).days}-day expiry {nearest.isoformat()}: no strike in "
+                f"the delta band holds {cfg.oi_min} open contracts. Using {target.isoformat()} instead, "
+                f"which does.")
+    else:
+        target = nearest
+        notes.append(
+            f"No expiry between {cfg.dte_min} and {cfg.dte_max} days has a strike in the delta band "
+            f"with {cfg.oi_min} open contracts, so the closest to {target_dte} days was used and gate "
+            "G3 will report what it finds.")
     dte = (target - today).days
     puts, calls = by_exp[target]["P"], by_exp[target]["C"]
 
@@ -304,7 +362,15 @@ def build(symbol: str, target_dte: int, width: float, delta_target: float,
         notes.append("Fewer than two monthly expiries available, so no term structure.")
 
     # the short leg, and the liquidity that goes with it
-    k_short, o_short = contract_at_delta(puts, delta_target)
+    k_short, o_short, pick_note = tradeable_contract(
+        puts, delta_target, cfg.delta_min, cfg.delta_max, cfg.oi_min)
+    if pick_note:
+        notes.append(pick_note)
+    elif o_short and o_short.get("delta"):
+        notes.append(
+            f"Short strike {k_short:g} at delta {abs(o_short['delta']):.3f}, chosen as the closest "
+            f"to {delta_target:.2f} among strikes inside the {cfg.delta_min:.2f}-{cfg.delta_max:.2f} "
+            f"band that carry at least {cfg.oi_min} open contracts.")
     spread_pct = open_interest = short_delta = None
     if o_short:
         short_delta = abs(o_short.get("delta")) if o_short.get("delta") else None

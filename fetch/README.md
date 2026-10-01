@@ -39,6 +39,15 @@ analyzer shows `N/A`, and the gate that depended on it stays `UNKNOWN`. Outside
 US market hours some contracts have no two-sided quote, so the spread comes back
 null — that is the honest answer, not a gap to fill with a zero.
 
+**Chase a target instead of a tradeable contract.** The calibration layer gives a
+delta band and a DTE band, not two points, so the fetcher stays inside both and
+then prefers what carries the open interest gate G3 will demand anyway. Picking
+purely by nearest delta and nearest DTE lands on dead contracts: SPX listed a
+Monday weekly three days closer to the target with zero open interest on every
+strike, and inside a good expiry it chose a strike holding 7 contracts while one
+five thousandths of a delta away held 192. Both are reported in the notes when
+they happen.
+
 **Treat a straddle as an earnings jump when no earnings are in the window.** The
 at-the-money straddle prices the expected move over the whole life of the
 contract. It is only a *jump* if the report actually falls inside that life. When
