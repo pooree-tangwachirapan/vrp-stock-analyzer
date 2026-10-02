@@ -7,6 +7,10 @@ services:
     runtime: python
     plan: free
     region: oregon
+    # Spelled out rather than relied on: two pushes went by without the service
+    # rebuilding, so leave nothing to the default.
+    autoDeploy: true
+    branch: main
     buildCommand: pip install --no-cache-dir numpy pandas yfinance
     startCommand: python vrp.py --no-browser
     envVars:
