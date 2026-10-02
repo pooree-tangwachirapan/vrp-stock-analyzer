@@ -1,0 +1,19 @@
+{
+  "name": "VRP Analyzer",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "postCreateCommand": "pip install --quiet -r vrp_app_core/requirements.txt yfinance",
+  "forwardPorts": [8765],
+  "portsAttributes": {
+    "8765": {
+      "label": "VRP Analyzer",
+      "visibility": "public",
+      "onAutoForward": "openPreview"
+    }
+  },
+  "postAttachCommand": "python vrp.py --no-browser --lan",
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-python.python"]
+    }
+  }
+}

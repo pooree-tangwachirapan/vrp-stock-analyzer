@@ -1,0 +1,15 @@
+# Render reads this when you connect the repo. Free tier, no card.
+# It sets PORT itself, which vrp.py already honours, so there is nothing to
+# configure in the dashboard beyond pointing it at this repository.
+services:
+  - type: web
+    name: vrp-analyzer
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: pip install --no-cache-dir numpy pandas yfinance
+    startCommand: python vrp.py --no-browser
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+    healthCheckPath: /api/health

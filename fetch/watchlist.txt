@@ -21,3 +21,8 @@ DIA
 _SPX
 _NDX
 _VIX
+
+# Anything else you follow. One line each, and it is published from the next
+# run onward -- the repo is public, so Actions minutes are free and this list
+# can grow a long way before the job takes long enough to notice.
+RKLB

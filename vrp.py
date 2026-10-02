@@ -216,17 +216,27 @@ class Handler(SimpleHTTPRequestHandler):
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--port", type=int, default=8765)
+    # Every host that runs a web process hands it a port in the environment and
+    # expects it to listen on every interface. Honouring that is the whole
+    # change needed to put this online: the same file serves the page and the
+    # API, so nothing above it has to know where it is running.
+    env_port = os.environ.get("PORT")
+    hosted = bool(env_port)
+
+    ap.add_argument("--port", type=int, default=int(env_port) if env_port else 8765)
     ap.add_argument("--no-browser", action="store_true")
     ap.add_argument("--lan", action="store_true",
                     help="also answer other devices on your network, so a phone can use it")
+    ap.add_argument("--host", default=None,
+                    help="interface to bind; defaults to loopback, or 0.0.0.0 when PORT is set")
     a = ap.parse_args()
 
     # Loopback by default: this is a helper for you, not for the network. --lan
     # opens it to the rest of the Wi-Fi so a phone can reach it, which is fine on
     # a home network and a bad idea on a shared one -- it serves this folder and
-    # will fetch quotes for anyone who asks.
-    host = "0.0.0.0" if a.lan else "127.0.0.1"
+    # will fetch quotes for anyone who asks. A platform that set PORT has already
+    # decided it is public and put its own proxy in front.
+    host = a.host or ("0.0.0.0" if (a.lan or hosted) else "127.0.0.1")
     try:
         srv = ThreadingHTTPServer((host, a.port), Handler)
     except OSError as e:
@@ -236,6 +246,14 @@ def main() -> int:
 
     url = f"http://127.0.0.1:{a.port}/index.html"
     print("VRP Stock Analyzer")
+    if hosted:
+        print(f"  listening on {host}:{a.port} (PORT was set, so this is a hosted run)")
+        print("  Type a ticker, press Calculate VRP.", flush=True)
+        try:
+            srv.serve_forever()
+        except KeyboardInterrupt:
+            pass
+        return 0
     print(f"  {url}")
     if a.lan:
         import socket as _s

@@ -65,6 +65,20 @@ publishes a history of implied vol. The fetcher logs today's at-the-money IV on
 every run and they appear once enough days have accumulated; type them in from
 your broker in the meantime.
 
+### Running it online
+
+`vrp.py` serves the page and the API from one file, so hosting that one file
+puts the whole thing online: any ticker, live, from a phone, with nothing
+installed. It honours `PORT` from the environment, which is all any host needs.
+
+`render.yaml` and a `Dockerfile` are in the repo, and [DEPLOY.md](DEPLOY.md) has
+the steps for Render, Hugging Face Spaces and Codespaces.
+
+This is worth understanding rather than copying: a Streamlit app never hits the
+CORS wall because its Python runs on a server and the browser only shows the
+result. Putting our Python on a server does the same thing, and costs no new
+code at all.
+
 ### Keeping the helper running
 
 The helper is an ordinary Python process. It has no connection to any editor or
