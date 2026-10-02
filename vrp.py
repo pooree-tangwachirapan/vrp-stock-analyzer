@@ -89,9 +89,33 @@ def _run_job(job_id: str, symbol: str, dte: int, width: float, delta: float, per
                             payload=payload, touched=time.time())
 
 
+# Only what the page actually loads. SimpleHTTPRequestHandler otherwise serves
+# the whole folder it is pointed at, including .git and a browsable index of
+# every directory. On a laptop that is merely untidy; on a public deployment it
+# hands out the source, the git objects and a map of everything else. Nothing
+# here is secret today, but an allowlist means a private file dropped into this
+# folder tomorrow does not become public by accident.
+SERVABLE_FILES = {"/", "/index.html", "/favicon.ico"}
+SERVABLE_DIRS = ("/data/", "/sample/")
+
+
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *a, **kw):
         super().__init__(*a, directory=REPO, **kw)
+
+    def _is_servable(self, path: str) -> bool:
+        path = path.split("?")[0]
+        if path in SERVABLE_FILES:
+            return True
+        if not path.startswith(SERVABLE_DIRS):
+            return False
+        # A directory prefix is not a licence to walk upwards out of it.
+        return ".." not in path and not path.endswith("/")
+
+    # Directory listings are a map of everything you did not mean to publish.
+    def list_directory(self, path):
+        self.send_error(404, "Not found")
+        return None
 
     # Serve the page fresh. Without this the browser keeps showing a cached
     # index.html after the file changes, which looks exactly like a bug.
@@ -124,6 +148,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self._start(urllib.parse.parse_qs(parts.query))
         if parts.path == "/api/progress":
             return self._progress(urllib.parse.parse_qs(parts.query))
+        if not self._is_servable(parts.path):
+            return self.send_error(404, "Not found")
         return super().do_GET()
 
     def _start(self, q):
