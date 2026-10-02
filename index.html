@@ -3090,6 +3090,7 @@ function calculate(){
         $("calc-status").innerHTML = "";
         setTimeout(function(){ showProgress(false); }, 400);
         stop();
+        revealAnswer();
       })
       .catch(function(){ fail(null, true); });
   }
@@ -3327,6 +3328,18 @@ function renderBoard(rows){
   }).join("") + "</div>";
 }
 
+/* The board sits above the answer, so once a symbol resolves the thing the
+   person pressed the button for is below the fold on a phone. Bring it to
+   them rather than making them hunt for it. */
+function revealAnswer(){
+  var el = $("banner");
+  if (!el) return;
+  var r = el.getBoundingClientRect();
+  if (r.top >= 0 && r.bottom <= window.innerHeight) return;   // already in view
+  try { el.scrollIntoView({ behavior: "smooth", block: "start" }); }
+  catch (e){ el.scrollIntoView(); }                            // older engines
+}
+
 function loadSaved(sym){
   $("calc-status").innerHTML = "Opening <b>" + V.esc(sym) + "</b>…";
   Promise.all([
@@ -3345,6 +3358,7 @@ function loadSaved(sym){
     applyInputs(meta, sym);
     $("in-symbol").value = sym;
     $("calc-status").innerHTML = "";
+    revealAnswer();
   }).catch(function(e){
     $("calc-status").innerHTML = '<span style="color:var(--fail)">' + V.esc(e.message) + "</span>";
   });
