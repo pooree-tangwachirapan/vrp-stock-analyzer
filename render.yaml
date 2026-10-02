@@ -10,6 +10,9 @@ services:
     buildCommand: pip install --no-cache-dir numpy pandas yfinance
     startCommand: python vrp.py --no-browser
     envVars:
+      # Render's own default is now 3.14, which is new enough that numpy and
+      # pandas may have no prebuilt wheels for it and pip would try to compile
+      # them. Pin the version this was actually rehearsed against instead.
       - key: PYTHON_VERSION
-        value: "3.12.7"
+        value: "3.12.10"
     healthCheckPath: /api/health

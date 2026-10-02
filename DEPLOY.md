@@ -29,12 +29,19 @@ The only code change this needed was honouring `PORT` from the environment.
 2. **New + → Blueprint.** Not "Web Service" — a Blueprint is what reads
    `render.yaml`, and picking Web Service means filling the same settings in by
    hand.
-3. Choose `vrp-stock-analyzer`, give the blueprint any name, **Apply**.
-4. The first build takes a few minutes. The URL looks like
+3. Click **Connect** beside `vrp-stock-analyzer`. Give the Blueprint any name,
+   leave the branch on `main` and the Blueprint Path empty — Render looks for
+   `render.yaml` at the repo root, which is where it is.
+4. Render shows what it is about to create. Click **Deploy Blueprint**.
+5. The first build takes a few minutes. The URL looks like
    `https://vrp-analyzer.onrender.com`.
 
 Open it and the ticker box works for anything. The page looks for its helper on
 its own origin and finds it, so it behaves exactly as it does on localhost.
+
+Python is pinned to 3.12.10 on purpose. Render now defaults to 3.14, which is
+recent enough that numpy and pandas may ship no wheels for it, and pip would
+fall back to compiling them during the build.
 
 The settings in `render.yaml` were rehearsed before committing: a clean
 virtualenv with only `numpy pandas yfinance` imports everything, the start
