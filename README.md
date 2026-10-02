@@ -65,6 +65,27 @@ publishes a history of implied vol. The fetcher logs today's at-the-money IV on
 every run and they appear once enough days have accumulated; type them in from
 your broker in the meantime.
 
+### Keeping the helper running
+
+The helper is an ordinary Python process. It has no connection to any editor or
+assistant: `vrp.py` reads the chain, serves `index.html`, and that is all. How
+you start it decides how long it lives.
+
+| How you start it | Lives until |
+|---|---|
+| Double-click `VRP.bat` | you close that window |
+| Double-click `VRP-silent.vbs` | you log out — no console window at all |
+| Run `install-autostart.bat` once | forever: it starts at every login |
+| Started from inside some other program | that program exits, taking it with it |
+
+That last row is the one that surprises people. A process started by another
+program is its child, and closing the parent takes the child with it. Nothing
+about the code changed; only who owns the process did.
+
+For most days none of this matters: the hosted page already has the daily
+numbers for every symbol on the watchlist and needs nothing running at all. The
+helper is for live intraday quotes, or for a ticker outside the list.
+
 **Price history by hand.** CSV with `Date, Open, High, Low, Close`. Column names are case insensitive, `Adj Close` is accepted in place of `Close`, and rows are sorted by date for you. At least 21 rows are required; below 130 the HAR blend renormalizes its weights and says so. With only a `Close` column you still get close-to-close RV, but no Parkinson, Garman-Klass, Yang-Zhang or gap ratio.
 
 `sample/sample_ohlc.csv` is 260 rows of **synthetic** data for trying the tool out. It is not a real stock. The "Load synthetic demo" button generates a similar series in the page.
