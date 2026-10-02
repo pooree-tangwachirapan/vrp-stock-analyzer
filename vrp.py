@@ -213,7 +213,47 @@ class Handler(SimpleHTTPRequestHandler):
         return self._json(200, payload)
 
 
+class _Sink:
+    """Somewhere harmless to write when there is no console."""
+    def write(self, *a):
+        return 0
+
+    def flush(self):
+        pass
+
+
+def _open_output():
+    """pythonw.exe runs without a console, so sys.stdout and sys.stderr are None.
+
+    Every write then raises, and because the only writes sit in the request
+    path, static files kept working while every /api/ call died with an empty
+    response. From the page that looked exactly like the helper being absent,
+    which sent people off starting a server that was already running.
+
+    Send it to a file instead. That fixes the crash and gives somewhere to look
+    when it is running with no window.
+    """
+    if sys.stdout is not None and sys.stderr is not None:
+        return
+    try:
+        log = open(os.path.join(REPO, "vrp.log"), "a", encoding="utf-8", buffering=1)
+    except OSError:
+        log = _Sink()
+    if sys.stdout is None:
+        sys.stdout = log
+    if sys.stderr is None:
+        sys.stderr = log
+
+
 def main() -> int:
+    _open_output()
+    # The Python reference carries Thai gate text, which the Windows console
+    # renders as mojibake under the legacy codepage.
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError, OSError):
+        pass
+
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     # Every host that runs a web process hands it a port in the environment and
