@@ -3336,8 +3336,23 @@ function revealAnswer(){
   if (!el) return;
   var r = el.getBoundingClientRect();
   if (r.top >= 0 && r.bottom <= window.innerHeight) return;   // already in view
-  try { el.scrollIntoView({ behavior: "smooth", block: "start" }); }
-  catch (e){ el.scrollIntoView(); }                            // older engines
+
+  // scrollIntoView silently did nothing when this was tested on the deployed
+  // page -- it returned without moving the window at all -- while scrollTo
+  // worked. So compute the position rather than ask to be taken there, and
+  // leave room for the sticky header that would otherwise cover the verdict.
+  var header = document.querySelector("header.top");
+  var pad = (header ? header.getBoundingClientRect().height : 0) + 10;
+  var target = Math.max(0, window.scrollY + r.top - pad);
+
+  try { window.scrollTo({ top: target, behavior: "smooth" }); }
+  catch (e){ window.scrollTo(0, target); }
+
+  // If the smooth path is unavailable or ignored, nothing will have moved.
+  // Check once and place the window outright.
+  setTimeout(function(){
+    if (Math.abs(window.scrollY - target) > 40) window.scrollTo(0, target);
+  }, 400);
 }
 
 function loadSaved(sym){
