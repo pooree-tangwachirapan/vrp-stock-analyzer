@@ -25,18 +25,31 @@ The only code change this needed was honouring `PORT` from the environment.
 
 ## Render — simplest, free, no card
 
-1. Go to **render.com**, sign in with GitHub.
-2. **New → Web Service**, pick `vrp-stock-analyzer`.
-3. Render reads `render.yaml`; accept it and **Create Web Service**.
-4. First build takes a few minutes. The URL looks like
+1. Go to **render.com** and sign in with GitHub.
+2. **New + → Blueprint.** Not "Web Service" — a Blueprint is what reads
+   `render.yaml`, and picking Web Service means filling the same settings in by
+   hand.
+3. Choose `vrp-stock-analyzer`, give the blueprint any name, **Apply**.
+4. The first build takes a few minutes. The URL looks like
    `https://vrp-analyzer.onrender.com`.
 
-Open it and the ticker box works for anything — the page finds the helper on its
-own origin, so it behaves exactly as it does on localhost.
+Open it and the ticker box works for anything. The page looks for its helper on
+its own origin and finds it, so it behaves exactly as it does on localhost.
+
+The settings in `render.yaml` were rehearsed before committing: a clean
+virtualenv with only `numpy pandas yfinance` imports everything, the start
+command binds `0.0.0.0` on whatever `PORT` says, `/api/health` answers so the
+health check passes, and a live RKLB lookup came back with 501 price rows. It
+should come up on the first attempt.
 
 **The catch:** free services sleep after about 15 minutes of no traffic, and the
 next visit waits roughly 50 seconds while it wakes. For a tool consulted a few
 times a day that is a nuisance, not a blocker. Paid tiers remove it.
+
+**One more thing worth knowing:** Render's filesystem is thrown away on each
+deploy. Live lookups still append to `fetch/iv_history`, but those rows vanish
+with the next build. The history that matters is the one the daily GitHub job
+commits, which arrives with the code.
 
 ## Hugging Face Spaces — slower to sleep
 
