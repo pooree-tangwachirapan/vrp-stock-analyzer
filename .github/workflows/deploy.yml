@@ -1,0 +1,46 @@
+name: Deploy to Render
+
+# Render's own GitHub integration went quiet: two pushes in a row left the
+# service running an older build with Auto-Deploy set to On Commit. Rather than
+# keep guessing at someone else's webhook, ask for the deploy directly.
+#
+# Setup, once: in Render open the service, Settings, scroll to Deploy Hook, copy
+# the URL. In GitHub open Settings, Secrets and variables, Actions, New
+# repository secret named RENDER_DEPLOY_HOOK, paste it. The URL carries its own
+# key, which is why it belongs in a secret and not in this file.
+#
+# Without the secret this job skips quietly, so the repo still works for anyone
+# who has no Render service at all.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: render-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ask Render to build this commit
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "No RENDER_DEPLOY_HOOK secret set, so there is nothing to tell."
+            echo "Add one to deploy automatically; see the comment at the top of this file."
+            exit 0
+          fi
+          code=$(curl -s -o /tmp/out -w "%{http_code}" "$HOOK")
+          echo "Render answered $code"
+          cat /tmp/out
+          echo
+          # Anything outside 2xx means the hook is wrong or revoked, and a
+          # silently stale deployment is the thing this job exists to prevent.
+          case "$code" in
+            2*) echo "Build requested." ;;
+            *)  echo "Render refused the deploy hook." >&2; exit 1 ;;
+          esac
