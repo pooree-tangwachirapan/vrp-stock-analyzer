@@ -58,6 +58,22 @@ deploy. Live lookups still append to `fetch/iv_history`, but those rows vanish
 with the next build. The history that matters is the one the daily GitHub job
 commits, which arrives with the code.
 
+### Deploying on every push
+
+Render's own GitHub integration went quiet here: two commits in a row left the
+service on an older build while Auto-Deploy read **On Commit**. Rather than keep
+guessing at it, `.github/workflows/deploy.yml` asks Render directly.
+
+One-time setup:
+
+1. Render, your service, **Settings**, find **Deploy Hook** and copy the URL.
+2. GitHub, the repo, **Settings → Secrets and variables → Actions → New
+   repository secret**. Name it `RENDER_DEPLOY_HOOK` and paste the URL.
+
+The URL carries its own key, which is why it is a secret rather than a line in
+the workflow. Without the secret the job prints what to do and exits clean, so
+the repo still works for anyone with no Render service.
+
 ## Hugging Face Spaces — slower to sleep
 
 1. **huggingface.co → New Space**, SDK **Docker**, visibility public.
