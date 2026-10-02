@@ -1,40 +1,40 @@
 {
  "schema": "vrp-inputs/1",
- "generatedAt": "2026-10-02T01:04:55+07:00",
+ "generatedAt": "2026-10-02T01:02:21+00:00",
  "symbol": "AMZN",
  "sources": {
   "options": "CBOE delayed quotes (cdn.cboe.com)",
-  "optionsTimestamp": "2026-10-01 18:04:41",
+  "optionsTimestamp": "2026-10-02 01:02:10",
   "prices": "Yahoo Finance via yfinance (AMZN, split-adjusted)",
-  "ivHistory": "fetch\\iv_history\\AMZN.csv (1 observations, latest logged for 2026-10-01)"
+  "ivHistory": "fetch/iv_history/AMZN.csv (1 observations, latest logged for 2026-10-01)"
  },
  "expiry": "2026-11-06",
  "notes": [
-  "IV30 interpolated between 28d (39.00%) and 35d (38.55%).",
-  "Short strike 230 at delta 0.230, chosen as the closest to 0.25 among strikes inside the 0.15-0.30 band that carry at least 100 open contracts.",
-  "Earnings land in 27 days, inside this 35-day expiry, so the ATM straddle (24.32) is read as the implied event move using the straddle factor 0.85 from the calibration layer.",
-  "Price is -2.9% against its 50-day average (downtrend).",
+  "IV30 interpolated between 28d (39.14%) and 35d (38.63%).",
+  "Short strike 230 at delta 0.238, chosen as the closest to 0.25 among strikes inside the 0.15-0.30 band that carry at least 100 open contracts.",
+  "Earnings land in 27 days, inside this 35-day expiry, so the ATM straddle (24.25) is read as the implied event move using the straddle factor 0.85 from the calibration layer.",
+  "Price is +nan% against its 50-day average (downtrend).",
   "IV Percentile needs 60 daily observations and the log holds 1. Run this daily and it will fill in; until then the field is null and gate G5 stays UNKNOWN."
  ],
  "inputs": {
-  "iv30": 38.8727,
-  "ivPut25": 39.4117,
-  "ivCall25": 38.702,
-  "ivM1": 27.9222,
-  "ivM2": 36.9511,
+  "iv30": 38.9934,
+  "ivPut25": 39.4893,
+  "ivCall25": 38.2708,
+  "ivM1": 28.1677,
+  "ivM2": 37.1231,
   "ivRank": null,
   "iv1yLow": null,
   "iv1yHigh": null,
   "ivPercentile": null,
-  "spot": 249.26,
+  "spot": 248.85,
   "dte": 35,
-  "spreadPct": 8.0,
+  "spreadPct": 11.24,
   "openInterest": 431,
-  "shortDelta": 0.2304,
+  "shortDelta": 0.2382,
   "shortStrike": 230.0,
   "earningsDays": 27,
-  "impliedMovePct": 8.3,
-  "straddleMovePct": 8.3,
+  "impliedMovePct": 8.28,
+  "straddleMovePct": 8.28,
   "historicalMoves": [
    9.58,
    5.55,
@@ -42,9 +42,9 @@
    15.32
   ],
   "spreadWidth": 5.0,
-  "credit": 1.12,
+  "credit": 1.05,
   "trendDirection": "down"
  },
  "ohlcFile": "AMZN_ohlc.csv",
- "ohlcRows": 252
+ "ohlcRows": 251
 }

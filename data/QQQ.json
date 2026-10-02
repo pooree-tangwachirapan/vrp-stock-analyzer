@@ -1,46 +1,46 @@
 {
  "schema": "vrp-inputs/1",
- "generatedAt": "2026-10-02T01:05:05+07:00",
+ "generatedAt": "2026-10-02T01:02:27+00:00",
  "symbol": "QQQ",
  "sources": {
   "options": "CBOE delayed quotes (cdn.cboe.com)",
-  "optionsTimestamp": "2026-10-01 18:04:35",
+  "optionsTimestamp": "2026-10-02 01:02:04",
   "prices": "Yahoo Finance via yfinance (QQQ, split-adjusted)",
-  "ivHistory": "fetch\\iv_history\\QQQ.csv (1 observations, latest logged for 2026-10-01)"
+  "ivHistory": "fetch/iv_history/QQQ.csv (1 observations, latest logged for 2026-10-01)"
  },
  "expiry": "2026-11-06",
  "notes": [
-  "IV30 interpolated between 28d (19.62%) and 35d (20.03%).",
-  "Short strike 715 at delta 0.262, chosen as the closest to 0.25 among strikes inside the 0.15-0.30 band that carry at least 100 open contracts.",
+  "IV30 interpolated between 28d (19.63%) and 35d (20.06%).",
+  "Short strike 710 at delta 0.241, chosen as the closest to 0.25 among strikes inside the 0.15-0.30 band that carry at least 100 open contracts.",
   "Yahoo returned no earnings dates.",
-  "The ATM straddle prices a 4.31% expected move, but the earnings date is unknown, so it is not being treated as an event jump. Set it by hand if a report falls inside this expiry.",
-  "Price is +3.7% against its 50-day average (uptrend).",
+  "The ATM straddle prices a 4.30% expected move, but the earnings date is unknown, so it is not being treated as an event jump. Set it by hand if a report falls inside this expiry.",
+  "Price is +nan% against its 50-day average (downtrend).",
   "IV Percentile needs 60 daily observations and the log holds 1. Run this daily and it will fill in; until then the field is null and gate G5 stays UNKNOWN."
  ],
  "inputs": {
-  "iv30": 19.7364,
-  "ivPut25": 22.8967,
-  "ivCall25": 17.8731,
-  "ivM1": 18.524,
-  "ivM2": 20.3848,
+  "iv30": 19.7494,
+  "ivPut25": 23.0367,
+  "ivCall25": 17.8852,
+  "ivM1": 18.566,
+  "ivM2": 20.4,
   "ivRank": null,
   "iv1yLow": null,
   "iv1yHigh": null,
   "ivPercentile": null,
-  "spot": 743.82,
+  "spot": 743.6,
   "dte": 35,
-  "spreadPct": 1.16,
-  "openInterest": 168,
-  "shortDelta": 0.262,
-  "shortStrike": 715.0,
+  "spreadPct": 1.9,
+  "openInterest": 379,
+  "shortDelta": 0.2411,
+  "shortStrike": 710.0,
   "earningsDays": null,
   "impliedMovePct": null,
-  "straddleMovePct": 4.31,
+  "straddleMovePct": 4.3,
   "historicalMoves": null,
   "spreadWidth": 5.0,
-  "credit": 0.99,
-  "trendDirection": "up"
+  "credit": 0.91,
+  "trendDirection": "down"
  },
  "ohlcFile": "QQQ_ohlc.csv",
- "ohlcRows": 252
+ "ohlcRows": 251
 }

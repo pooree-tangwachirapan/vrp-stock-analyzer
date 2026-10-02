@@ -1,90 +1,90 @@
 {
- "generatedAt": "2026-10-02T01:05:15+07:00",
+ "generatedAt": "2026-10-02T01:02:34+00:00",
  "schema": "vrp-index/1",
  "symbols": {
   "AAPL": {
    "dte": 35,
    "expiry": "2026-11-06",
-   "optionsTimestamp": "2026-10-01 18:03:38",
-   "updated": "2026-10-02T01:04:47+07:00"
+   "optionsTimestamp": "2026-10-02 01:02:08",
+   "updated": "2026-10-02T01:02:16+00:00"
   },
   "AMZN": {
    "dte": 35,
    "expiry": "2026-11-06",
-   "optionsTimestamp": "2026-10-01 18:04:41",
-   "updated": "2026-10-02T01:04:55+07:00"
+   "optionsTimestamp": "2026-10-02 01:02:10",
+   "updated": "2026-10-02T01:02:21+00:00"
   },
   "DIA": {
    "dte": 35,
    "expiry": "2026-11-06",
-   "optionsTimestamp": "2026-10-01 18:04:33",
-   "updated": "2026-10-02T01:05:09+07:00"
+   "optionsTimestamp": "2026-10-02 01:02:03",
+   "updated": "2026-10-02T01:02:30+00:00"
   },
   "GOOGL": {
    "dte": 35,
    "expiry": "2026-11-06",
-   "optionsTimestamp": "2026-10-01 18:04:39",
-   "updated": "2026-10-02T01:04:52+07:00"
+   "optionsTimestamp": "2026-10-02 01:02:08",
+   "updated": "2026-10-02T01:02:20+00:00"
   },
   "IWM": {
    "dte": 35,
    "expiry": "2026-11-06",
-   "optionsTimestamp": "2026-10-01 18:04:40",
-   "updated": "2026-10-02T01:05:07+07:00"
+   "optionsTimestamp": "2026-10-02 01:02:09",
+   "updated": "2026-10-02T01:02:29+00:00"
   },
   "META": {
    "dte": 35,
    "expiry": "2026-11-06",
-   "optionsTimestamp": "2026-10-01 18:04:41",
-   "updated": "2026-10-02T01:05:00+07:00"
+   "optionsTimestamp": "2026-10-02 01:02:11",
+   "updated": "2026-10-02T01:02:23+00:00"
   },
   "MSFT": {
    "dte": 35,
    "expiry": "2026-11-06",
-   "optionsTimestamp": "2026-10-01 18:03:38",
-   "updated": "2026-10-02T01:04:49+07:00"
+   "optionsTimestamp": "2026-10-02 01:02:08",
+   "updated": "2026-10-02T01:02:18+00:00"
   },
   "NVDA": {
    "dte": 35,
    "expiry": "2026-11-06",
-   "optionsTimestamp": "2026-10-01 18:03:38",
-   "updated": "2026-10-02T01:04:56+07:00"
+   "optionsTimestamp": "2026-10-02 01:02:08",
+   "updated": "2026-10-02T01:02:22+00:00"
   },
   "QQQ": {
    "dte": 35,
    "expiry": "2026-11-06",
-   "optionsTimestamp": "2026-10-01 18:04:35",
-   "updated": "2026-10-02T01:05:05+07:00"
+   "optionsTimestamp": "2026-10-02 01:02:04",
+   "updated": "2026-10-02T01:02:27+00:00"
   },
   "SPY": {
    "dte": 35,
    "expiry": "2026-11-06",
-   "optionsTimestamp": "2026-10-01 18:04:42",
-   "updated": "2026-10-02T01:05:03+07:00"
+   "optionsTimestamp": "2026-10-02 01:02:12",
+   "updated": "2026-10-02T01:02:26+00:00"
   },
   "TSLA": {
    "dte": 35,
    "expiry": "2026-11-06",
-   "optionsTimestamp": "2026-10-01 18:04:40",
-   "updated": "2026-10-02T01:05:01+07:00"
+   "optionsTimestamp": "2026-10-02 01:02:09",
+   "updated": "2026-10-02T01:02:25+00:00"
   },
   "_NDX": {
    "dte": 35,
    "expiry": "2026-11-06",
-   "optionsTimestamp": "2026-10-01 18:04:48",
-   "updated": "2026-10-02T01:05:13+07:00"
+   "optionsTimestamp": "2026-10-02 01:02:12",
+   "updated": "2026-10-02T01:02:33+00:00"
   },
   "_SPX": {
    "dte": 35,
    "expiry": "2026-11-06",
-   "optionsTimestamp": "2026-10-01 18:04:37",
-   "updated": "2026-10-02T01:05:11+07:00"
+   "optionsTimestamp": "2026-10-02 01:02:24",
+   "updated": "2026-10-02T01:02:32+00:00"
   },
   "_VIX": {
    "dte": 33,
    "expiry": "2026-11-04",
-   "optionsTimestamp": "2026-10-01 18:04:43",
-   "updated": "2026-10-02T01:05:15+07:00"
+   "optionsTimestamp": "2026-10-02 01:02:12",
+   "updated": "2026-10-02T01:02:34+00:00"
   }
  }
 }

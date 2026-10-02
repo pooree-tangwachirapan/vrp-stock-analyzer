@@ -1,40 +1,40 @@
 {
  "schema": "vrp-inputs/1",
- "generatedAt": "2026-10-02T01:05:00+07:00",
+ "generatedAt": "2026-10-02T01:02:23+00:00",
  "symbol": "META",
  "sources": {
   "options": "CBOE delayed quotes (cdn.cboe.com)",
-  "optionsTimestamp": "2026-10-01 18:04:41",
+  "optionsTimestamp": "2026-10-02 01:02:11",
   "prices": "Yahoo Finance via yfinance (META, split-adjusted)",
-  "ivHistory": "fetch\\iv_history\\META.csv (1 observations, latest logged for 2026-10-01)"
+  "ivHistory": "fetch/iv_history/META.csv (1 observations, latest logged for 2026-10-01)"
  },
  "expiry": "2026-11-06",
  "notes": [
-  "IV30 interpolated between 28d (45.14%) and 35d (44.67%).",
-  "Short strike 680 at delta 0.276, chosen as the closest to 0.25 among strikes inside the 0.15-0.30 band that carry at least 100 open contracts.",
-  "Earnings land in 26 days, inside this 35-day expiry, so the ATM straddle (82.05) is read as the implied event move using the straddle factor 0.85 from the calibration layer.",
-  "Price is +17.1% against its 50-day average (uptrend).",
+  "IV30 interpolated between 28d (44.86%) and 35d (44.42%).",
+  "Short strike 680 at delta 0.287, chosen as the closest to 0.25 among strikes inside the 0.15-0.30 band that carry at least 100 open contracts.",
+  "Earnings land in 26 days, inside this 35-day expiry, so the ATM straddle (80.75) is read as the implied event move using the straddle factor 0.85 from the calibration layer.",
+  "Price is +nan% against its 50-day average (downtrend).",
   "IV Percentile needs 60 daily observations and the log holds 1. Run this daily and it will fill in; until then the field is null and gate G5 stays UNKNOWN."
  ],
  "inputs": {
-  "iv30": 45.0081,
-  "ivPut25": 45.041,
-  "ivCall25": 45.3942,
-  "ivM1": 37.1532,
-  "ivM2": 42.2678,
+  "iv30": 44.7301,
+  "ivPut25": 44.7407,
+  "ivCall25": 44.8108,
+  "ivM1": 36.5535,
+  "ivM2": 42.08,
   "ivRank": null,
   "iv1yLow": null,
   "iv1yHigh": null,
   "ivPercentile": null,
-  "spot": 729.82,
+  "spot": 726.77,
   "dte": 35,
-  "spreadPct": 2.67,
+  "spreadPct": 3.08,
   "openInterest": 264,
-  "shortDelta": 0.2755,
+  "shortDelta": 0.2875,
   "shortStrike": 680.0,
   "earningsDays": 26,
-  "impliedMovePct": 9.56,
-  "straddleMovePct": 9.56,
+  "impliedMovePct": 9.44,
+  "straddleMovePct": 9.44,
   "historicalMoves": [
    11.33,
    10.4,
@@ -42,9 +42,9 @@
    7.95
   ],
   "spreadWidth": 5.0,
-  "credit": 1.52,
-  "trendDirection": "up"
+  "credit": 1.6,
+  "trendDirection": "down"
  },
  "ohlcFile": "META_ohlc.csv",
- "ohlcRows": 252
+ "ohlcRows": 251
 }
