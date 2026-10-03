@@ -1,49 +1,49 @@
 {
  "schema": "vrp-inputs/1",
- "generatedAt": "2026-10-02T01:02:34+00:00",
+ "generatedAt": "2026-10-03T00:39:52+00:00",
  "symbol": "_VIX",
  "sources": {
   "options": "CBOE delayed quotes (cdn.cboe.com)",
-  "optionsTimestamp": "2026-10-02 01:02:12",
+  "optionsTimestamp": "2026-10-03 00:38:50",
   "prices": "Yahoo Finance via yfinance (^VIX, split-adjusted)",
-  "ivHistory": "fetch/iv_history/_VIX.csv (1 observations, latest logged for 2026-10-01)"
+  "ivHistory": "fetch/iv_history/_VIX.csv (2 observations, latest logged for 2026-10-02)"
  },
  "expiry": "2026-11-04",
  "notes": [
   "No expiry between 30 and 45 days has a strike in the delta band with 100 open contracts, so the closest to 38 days was used and gate G3 will report what it finds.",
-  "IV30 interpolated between 26d (61.02%) and 33d (60.91%).",
+  "IV30 interpolated between 25d (41.79%) and 32d (53.86%).",
   "Fewer than two monthly expiries available, so no term structure.",
   "No strike between delta 0.15 and 0.30 carries 100 open contracts, so the nearest delta was used and gate G3 will say so.",
   "The delta-25 put had no two-sided quote, so the spread is null. Outside US market hours this is normal; re-run during the session.",
   "No two-sided quotes on both legs, so the credit is null.",
   "Yahoo returned no earnings dates.",
   "No two-sided ATM straddle quote, so no expected move could be priced.",
-  "Price is +3.4% against its 50-day average (uptrend).",
-  "IV Percentile needs 60 daily observations and the log holds 1. Run this daily and it will fill in; until then the field is null and gate G5 stays UNKNOWN."
+  "Price is -3.0% against its 50-day average (downtrend).",
+  "IV Percentile needs 60 daily observations and the log holds 2. Run this daily and it will fill in; until then the field is null and gate G5 stays UNKNOWN."
  ],
  "inputs": {
-  "iv30": 60.955,
-  "ivPut25": 62.1293,
-  "ivCall25": 122.6079,
+  "iv30": 50.4108,
+  "ivPut25": 54.814,
+  "ivCall25": 127.5803,
   "ivM1": null,
   "ivM2": null,
   "ivRank": null,
   "iv1yLow": null,
   "iv1yHigh": null,
   "ivPercentile": null,
-  "spot": 16.39,
-  "dte": 33,
+  "spot": 15.31,
+  "dte": 32,
   "spreadPct": null,
   "openInterest": null,
-  "shortDelta": 0.2698,
-  "shortStrike": 16.0,
+  "shortDelta": 0.2611,
+  "shortStrike": 15.0,
   "earningsDays": null,
   "impliedMovePct": null,
   "straddleMovePct": null,
   "historicalMoves": null,
   "spreadWidth": null,
   "credit": null,
-  "trendDirection": "up"
+  "trendDirection": "down"
  },
  "ohlcFile": "_VIX_ohlc.csv",
  "ohlcRows": 254

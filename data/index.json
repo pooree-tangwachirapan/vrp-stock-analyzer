@@ -1,90 +1,96 @@
 {
- "generatedAt": "2026-10-02T01:02:34+00:00",
+ "generatedAt": "2026-10-03T00:39:53+00:00",
  "schema": "vrp-index/1",
  "symbols": {
   "AAPL": {
-   "dte": 35,
+   "dte": 34,
    "expiry": "2026-11-06",
-   "optionsTimestamp": "2026-10-02 01:02:08",
-   "updated": "2026-10-02T01:02:16+00:00"
+   "optionsTimestamp": "2026-10-03 00:38:58",
+   "updated": "2026-10-03T00:39:40+00:00"
   },
   "AMZN": {
-   "dte": 35,
-   "expiry": "2026-11-06",
-   "optionsTimestamp": "2026-10-02 01:02:10",
-   "updated": "2026-10-02T01:02:21+00:00"
+   "dte": 41,
+   "expiry": "2026-11-13",
+   "optionsTimestamp": "2026-10-03 00:38:46",
+   "updated": "2026-10-03T00:39:42+00:00"
   },
   "DIA": {
-   "dte": 35,
-   "expiry": "2026-11-06",
-   "optionsTimestamp": "2026-10-02 01:02:03",
-   "updated": "2026-10-02T01:02:30+00:00"
+   "dte": 41,
+   "expiry": "2026-11-13",
+   "optionsTimestamp": "2026-10-02 23:52:16",
+   "updated": "2026-10-03T00:39:48+00:00"
   },
   "GOOGL": {
-   "dte": 35,
+   "dte": 34,
    "expiry": "2026-11-06",
-   "optionsTimestamp": "2026-10-02 01:02:08",
-   "updated": "2026-10-02T01:02:20+00:00"
+   "optionsTimestamp": "2026-10-03 00:38:51",
+   "updated": "2026-10-03T00:39:41+00:00"
   },
   "IWM": {
-   "dte": 35,
+   "dte": 34,
    "expiry": "2026-11-06",
-   "optionsTimestamp": "2026-10-02 01:02:09",
-   "updated": "2026-10-02T01:02:29+00:00"
+   "optionsTimestamp": "2026-10-03 00:38:51",
+   "updated": "2026-10-03T00:39:48+00:00"
   },
   "META": {
-   "dte": 35,
+   "dte": 34,
    "expiry": "2026-11-06",
-   "optionsTimestamp": "2026-10-02 01:02:11",
-   "updated": "2026-10-02T01:02:23+00:00"
+   "optionsTimestamp": "2026-10-03 00:38:51",
+   "updated": "2026-10-03T00:39:44+00:00"
   },
   "MSFT": {
-   "dte": 35,
+   "dte": 34,
    "expiry": "2026-11-06",
-   "optionsTimestamp": "2026-10-02 01:02:08",
-   "updated": "2026-10-02T01:02:18+00:00"
+   "optionsTimestamp": "2026-10-03 00:38:47",
+   "updated": "2026-10-03T00:39:41+00:00"
   },
   "NVDA": {
-   "dte": 35,
+   "dte": 34,
    "expiry": "2026-11-06",
-   "optionsTimestamp": "2026-10-02 01:02:08",
-   "updated": "2026-10-02T01:02:22+00:00"
+   "optionsTimestamp": "2026-10-03 00:38:58",
+   "updated": "2026-10-03T00:39:43+00:00"
   },
   "QQQ": {
-   "dte": 35,
+   "dte": 34,
    "expiry": "2026-11-06",
-   "optionsTimestamp": "2026-10-02 01:02:04",
-   "updated": "2026-10-02T01:02:27+00:00"
+   "optionsTimestamp": "2026-10-03 00:38:48",
+   "updated": "2026-10-03T00:39:47+00:00"
+  },
+  "RKLB": {
+   "dte": 41,
+   "expiry": "2026-11-13",
+   "optionsTimestamp": "2026-10-03 00:38:55",
+   "updated": "2026-10-03T00:39:53+00:00"
   },
   "SPY": {
-   "dte": 35,
-   "expiry": "2026-11-06",
-   "optionsTimestamp": "2026-10-02 01:02:12",
-   "updated": "2026-10-02T01:02:26+00:00"
+   "dte": 41,
+   "expiry": "2026-11-13",
+   "optionsTimestamp": "2026-10-03 00:38:48",
+   "updated": "2026-10-03T00:39:46+00:00"
   },
   "TSLA": {
-   "dte": 35,
+   "dte": 34,
    "expiry": "2026-11-06",
-   "optionsTimestamp": "2026-10-02 01:02:09",
-   "updated": "2026-10-02T01:02:25+00:00"
+   "optionsTimestamp": "2026-10-03 00:38:56",
+   "updated": "2026-10-03T00:39:45+00:00"
   },
   "_NDX": {
-   "dte": 35,
-   "expiry": "2026-11-06",
-   "optionsTimestamp": "2026-10-02 01:02:12",
-   "updated": "2026-10-02T01:02:33+00:00"
+   "dte": 37,
+   "expiry": "2026-11-09",
+   "optionsTimestamp": "2026-10-03 00:39:39",
+   "updated": "2026-10-03T00:39:52+00:00"
   },
   "_SPX": {
-   "dte": 35,
-   "expiry": "2026-11-06",
-   "optionsTimestamp": "2026-10-02 01:02:24",
-   "updated": "2026-10-02T01:02:32+00:00"
+   "dte": 41,
+   "expiry": "2026-11-13",
+   "optionsTimestamp": "2026-10-03 00:39:26",
+   "updated": "2026-10-03T00:39:50+00:00"
   },
   "_VIX": {
-   "dte": 33,
+   "dte": 32,
    "expiry": "2026-11-04",
-   "optionsTimestamp": "2026-10-02 01:02:12",
-   "updated": "2026-10-02T01:02:34+00:00"
+   "optionsTimestamp": "2026-10-03 00:38:50",
+   "updated": "2026-10-03T00:39:52+00:00"
   }
  }
 }

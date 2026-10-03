@@ -1,0 +1,50 @@
+{
+ "schema": "vrp-inputs/1",
+ "generatedAt": "2026-10-03T00:39:53+00:00",
+ "symbol": "RKLB",
+ "sources": {
+  "options": "CBOE delayed quotes (cdn.cboe.com)",
+  "optionsTimestamp": "2026-10-03 00:38:55",
+  "prices": "Yahoo Finance via yfinance (RKLB, split-adjusted)",
+  "ivHistory": "fetch/iv_history/RKLB.csv (2 observations, latest logged for 2026-10-02)"
+ },
+ "expiry": "2026-11-13",
+ "notes": [
+  "IV30 interpolated between 27d (66.27%) and 34d (70.25%).",
+  "Short strike 60 at delta 0.164, chosen as the closest to 0.25 among strikes inside the 0.15-0.30 band that carry at least 100 open contracts.",
+  "Earnings land in 37 days, inside this 41-day expiry, so the ATM straddle (14.62) is read as the implied event move using the straddle factor 0.85 from the calibration layer.",
+  "Price is +nan% against its 50-day average (downtrend).",
+  "IV Percentile needs 60 daily observations and the log holds 2. Run this daily and it will fill in; until then the field is null and gate G5 stays UNKNOWN."
+ ],
+ "inputs": {
+  "iv30": 67.9794,
+  "ivPut25": 73.0707,
+  "ivCall25": 73.31,
+  "ivM1": 65.6724,
+  "ivM2": 75.6383,
+  "ivRank": null,
+  "iv1yLow": null,
+  "iv1yHigh": null,
+  "ivPercentile": null,
+  "spot": 74.13,
+  "dte": 41,
+  "spreadPct": 39.57,
+  "openInterest": 201,
+  "shortDelta": 0.1642,
+  "shortStrike": 60.0,
+  "earningsDays": 37,
+  "impliedMovePct": 16.77,
+  "straddleMovePct": 16.77,
+  "historicalMoves": [
+   1.27,
+   4.89,
+   34.22,
+   0.04
+  ],
+  "spreadWidth": 5.0,
+  "credit": 1.03,
+  "trendDirection": "down"
+ },
+ "ohlcFile": "RKLB_ohlc.csv",
+ "ohlcRows": 251
+}
