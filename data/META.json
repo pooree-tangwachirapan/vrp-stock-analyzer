@@ -1,41 +1,41 @@
 {
  "schema": "vrp-inputs/1",
- "generatedAt": "2026-10-03T00:39:44+00:00",
+ "generatedAt": "2026-10-06T01:50:51+00:00",
  "symbol": "META",
  "sources": {
   "options": "CBOE delayed quotes (cdn.cboe.com)",
-  "optionsTimestamp": "2026-10-03 00:38:51",
+  "optionsTimestamp": "2026-10-06 01:50:07",
   "prices": "Yahoo Finance via yfinance (META, split-adjusted)",
-  "ivHistory": "fetch/iv_history/META.csv (2 observations, latest logged for 2026-10-02)"
+  "ivHistory": "fetch/iv_history/META.csv (3 observations, latest logged for 2026-10-05)"
  },
  "expiry": "2026-11-06",
  "notes": [
-  "Skipped the 41-day expiry 2026-11-13: no strike in the delta band holds 100 open contracts. Using 2026-11-06 instead, which does.",
-  "IV30 interpolated between 27d (42.52%) and 34d (42.14%).",
-  "Short strike 680 at delta 0.270, chosen as the closest to 0.25 among strikes inside the 0.15-0.30 band that carry at least 100 open contracts.",
-  "Earnings land in 25 days, inside this 34-day expiry, so the ATM straddle (75.85) is read as the implied event move using the straddle factor 0.85 from the calibration layer.",
-  "Price is +nan% against its 50-day average (downtrend).",
-  "IV Percentile needs 60 daily observations and the log holds 2. Run this daily and it will fill in; until then the field is null and gate G5 stays UNKNOWN."
+  "Skipped the 38-day expiry 2026-11-13: no strike in the delta band holds 100 open contracts. Using 2026-11-06 instead, which does.",
+  "IV30 interpolated between 24d (44.22%) and 31d (43.53%).",
+  "Short strike 690 at delta 0.258, chosen as the closest to 0.25 among strikes inside the 0.15-0.30 band that carry at least 100 open contracts.",
+  "Earnings land in 22 days, inside this 31-day expiry, so the ATM straddle (76.33) is read as the implied event move using the straddle factor 0.85 from the calibration layer.",
+  "Price is +18.2% against its 50-day average (uptrend).",
+  "IV Percentile needs 60 daily observations and the log holds 3. Run this daily and it will fill in; until then the field is null and gate G5 stays UNKNOWN."
  ],
  "inputs": {
-  "iv30": 42.3577,
-  "ivPut25": 42.4826,
-  "ivCall25": 42.3143,
-  "ivM1": 33.3871,
-  "ivM2": 39.9594,
+  "iv30": 43.6273,
+  "ivPut25": 43.7252,
+  "ivCall25": 43.8837,
+  "ivM1": 34.3308,
+  "ivM2": 40.7606,
   "ivRank": null,
   "iv1yLow": null,
   "iv1yHigh": null,
   "ivPercentile": null,
-  "spot": 727.65,
-  "dte": 34,
-  "spreadPct": 2.97,
-  "openInterest": 265,
-  "shortDelta": 0.2703,
-  "shortStrike": 680.0,
-  "earningsDays": 25,
-  "impliedMovePct": 8.86,
-  "straddleMovePct": 8.86,
+  "spot": 742.55,
+  "dte": 31,
+  "spreadPct": 3.16,
+  "openInterest": 259,
+  "shortDelta": 0.2581,
+  "shortStrike": 690.0,
+  "earningsDays": 22,
+  "impliedMovePct": 8.74,
+  "straddleMovePct": 8.74,
   "historicalMoves": [
    11.33,
    10.4,
@@ -43,8 +43,8 @@
    7.95
   ],
   "spreadWidth": 5.0,
-  "credit": 1.48,
-  "trendDirection": "down"
+  "credit": 1.35,
+  "trendDirection": "up"
  },
  "ohlcFile": "META_ohlc.csv",
  "ohlcRows": 251

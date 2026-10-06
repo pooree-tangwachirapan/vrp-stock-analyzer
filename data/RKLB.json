@@ -1,40 +1,40 @@
 {
  "schema": "vrp-inputs/1",
- "generatedAt": "2026-10-03T00:39:53+00:00",
+ "generatedAt": "2026-10-06T01:51:01+00:00",
  "symbol": "RKLB",
  "sources": {
   "options": "CBOE delayed quotes (cdn.cboe.com)",
-  "optionsTimestamp": "2026-10-03 00:38:55",
+  "optionsTimestamp": "2026-10-06 01:50:14",
   "prices": "Yahoo Finance via yfinance (RKLB, split-adjusted)",
-  "ivHistory": "fetch/iv_history/RKLB.csv (2 observations, latest logged for 2026-10-02)"
+  "ivHistory": "fetch/iv_history/RKLB.csv (3 observations, latest logged for 2026-10-05)"
  },
  "expiry": "2026-11-13",
  "notes": [
-  "IV30 interpolated between 27d (66.27%) and 34d (70.25%).",
-  "Short strike 60 at delta 0.164, chosen as the closest to 0.25 among strikes inside the 0.15-0.30 band that carry at least 100 open contracts.",
-  "Earnings land in 37 days, inside this 41-day expiry, so the ATM straddle (14.62) is read as the implied event move using the straddle factor 0.85 from the calibration layer.",
-  "Price is +nan% against its 50-day average (downtrend).",
-  "IV Percentile needs 60 daily observations and the log holds 2. Run this daily and it will fill in; until then the field is null and gate G5 stays UNKNOWN."
+  "IV30 interpolated between 24d (55.54%) and 31d (66.04%).",
+  "Short strike 60 at delta 0.169, chosen as the closest to 0.25 among strikes inside the 0.15-0.30 band that carry at least 100 open contracts.",
+  "Earnings land in 34 days, inside this 38-day expiry, so the ATM straddle (13.72) is read as the implied event move using the straddle factor 0.85 from the calibration layer.",
+  "Price is +4.4% against its 50-day average (uptrend).",
+  "IV Percentile needs 60 daily observations and the log holds 3. Run this daily and it will fill in; until then the field is null and gate G5 stays UNKNOWN."
  ],
  "inputs": {
-  "iv30": 67.9794,
-  "ivPut25": 73.0707,
-  "ivCall25": 73.31,
-  "ivM1": 65.6724,
-  "ivM2": 75.6383,
+  "iv30": 64.538,
+  "ivPut25": 67.7777,
+  "ivCall25": 73.9396,
+  "ivM1": 67.6431,
+  "ivM2": 74.0676,
   "ivRank": null,
   "iv1yLow": null,
   "iv1yHigh": null,
   "ivPercentile": null,
-  "spot": 74.13,
-  "dte": 41,
-  "spreadPct": 39.57,
-  "openInterest": 201,
-  "shortDelta": 0.1642,
+  "spot": 73.09,
+  "dte": 38,
+  "spreadPct": 29.09,
+  "openInterest": 206,
+  "shortDelta": 0.1691,
   "shortStrike": 60.0,
-  "earningsDays": 37,
-  "impliedMovePct": 16.77,
-  "straddleMovePct": 16.77,
+  "earningsDays": 34,
+  "impliedMovePct": 15.96,
+  "straddleMovePct": 15.96,
   "historicalMoves": [
    1.27,
    4.89,
@@ -42,8 +42,8 @@
    0.04
   ],
   "spreadWidth": 5.0,
-  "credit": 1.03,
-  "trendDirection": "down"
+  "credit": 0.74,
+  "trendDirection": "up"
  },
  "ohlcFile": "RKLB_ohlc.csv",
  "ohlcRows": 251
