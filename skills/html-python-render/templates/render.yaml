@@ -1,0 +1,23 @@
+# Render reads this as a Blueprint: New + -> Blueprint, not "Web Service".
+# Only a Blueprint reads this file; Web Service makes you retype every setting.
+# Render sets PORT itself, which app.py already honours, so there is nothing to
+# configure in the dashboard beyond pointing it at the repository.
+services:
+  - type: web
+    name: my-app
+    runtime: python
+    plan: free
+    region: oregon
+    # Spelled out rather than relied on: auto-deploy has been seen not firing
+    # with these at their defaults.
+    autoDeploy: true
+    branch: main
+    buildCommand: pip install --no-cache-dir numpy pandas
+    startCommand: python app.py --no-browser
+    envVars:
+      # Render's default is now 3.14, new enough that scientific packages may
+      # ship no wheels for it and pip would compile them during the build. Pin
+      # the version you actually rehearsed against.
+      - key: PYTHON_VERSION
+        value: "3.12.10"
+    healthCheckPath: /api/health
