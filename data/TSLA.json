@@ -1,38 +1,38 @@
 {
  "schema": "vrp-inputs/1",
- "generatedAt": "2026-10-07T00:57:23+00:00",
+ "generatedAt": "2026-10-08T01:13:20+00:00",
  "symbol": "TSLA",
  "sources": {
   "options": "CBOE delayed quotes (cdn.cboe.com)",
-  "optionsTimestamp": "2026-10-07 00:56:56",
+  "optionsTimestamp": "2026-10-08 01:12:57",
   "prices": "Yahoo Finance via yfinance (TSLA, split-adjusted)",
-  "ivHistory": "fetch/iv_history/TSLA.csv (4 observations, latest logged for 2026-10-06)"
+  "ivHistory": "fetch/iv_history/TSLA.csv (5 observations, latest logged for 2026-10-07)"
  },
  "expiry": "2026-11-13",
  "notes": [
-  "IV30 interpolated between 30d (42.94%) and 30d (42.94%).",
-  "Short strike 340 at delta 0.179, chosen as the closest to 0.25 among strikes inside the 0.15-0.30 band that carry at least 100 open contracts.",
-  "Earnings land in 14 days, inside this 37-day expiry, so the ATM straddle (41.02) is read as the implied event move using the straddle factor 0.85 from the calibration layer.",
-  "Price is +8.7% against its 50-day average (uptrend).",
-  "IV Percentile needs 60 daily observations and the log holds 4. Run this daily and it will fill in; until then the field is null and gate G5 stays UNKNOWN."
+  "IV30 interpolated between 29d (43.58%) and 36d (42.37%).",
+  "Short strike 340 at delta 0.195, chosen as the closest to 0.25 among strikes inside the 0.15-0.30 band that carry at least 100 open contracts.",
+  "Earnings land in 13 days, inside this 36-day expiry, so the ATM straddle (40.85) is read as the implied event move using the straddle factor 0.85 from the calibration layer.",
+  "Price is +nan% against its 50-day average (downtrend).",
+  "IV Percentile needs 60 daily observations and the log holds 5. Run this daily and it will fill in; until then the field is null and gate G5 stays UNKNOWN."
  ],
  "inputs": {
-  "iv30": 42.9395,
-  "ivPut25": 42.2047,
-  "ivCall25": 42.2463,
-  "ivM1": 37.6831,
-  "ivM2": 41.1305,
+  "iv30": 43.4053,
+  "ivPut25": 42.8405,
+  "ivCall25": 42.9776,
+  "ivM1": 38.8253,
+  "ivM2": 41.7476,
   "ivRank": null,
   "iv1yLow": null,
   "iv1yHigh": null,
   "ivPercentile": null,
-  "spot": 379.74,
-  "dte": 37,
-  "spreadPct": 5.56,
-  "openInterest": 168,
-  "shortDelta": 0.1789,
+  "spot": 378.12,
+  "dte": 36,
+  "spreadPct": 7.53,
+  "openInterest": 201,
+  "shortDelta": 0.1947,
   "shortStrike": 340.0,
-  "earningsDays": 14,
+  "earningsDays": 13,
   "impliedMovePct": 9.18,
   "straddleMovePct": 9.18,
   "historicalMoves": [
@@ -42,8 +42,8 @@
    14.52
   ],
   "spreadWidth": 5.0,
-  "credit": 0.88,
-  "trendDirection": "up"
+  "credit": 1.0,
+  "trendDirection": "down"
  },
  "ohlcFile": "TSLA_ohlc.csv",
  "ohlcRows": 251

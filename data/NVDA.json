@@ -1,40 +1,40 @@
 {
  "schema": "vrp-inputs/1",
- "generatedAt": "2026-10-07T00:57:21+00:00",
+ "generatedAt": "2026-10-08T01:13:18+00:00",
  "symbol": "NVDA",
  "sources": {
   "options": "CBOE delayed quotes (cdn.cboe.com)",
-  "optionsTimestamp": "2026-10-07 00:56:52",
+  "optionsTimestamp": "2026-10-08 01:12:58",
   "prices": "Yahoo Finance via yfinance (NVDA, split-adjusted)",
-  "ivHistory": "fetch/iv_history/NVDA.csv (4 observations, latest logged for 2026-10-06)"
+  "ivHistory": "fetch/iv_history/NVDA.csv (5 observations, latest logged for 2026-10-07)"
  },
  "expiry": "2026-11-13",
  "notes": [
-  "IV30 interpolated between 30d (28.60%) and 30d (28.60%).",
-  "Short strike 225 at delta 0.240, chosen as the closest to 0.25 among strikes inside the 0.15-0.30 band that carry at least 100 open contracts.",
-  "Earnings are 41 days out and this expiry runs 37 days, so no event sits inside the contract. The 6.29% the straddle prices is ordinary diffusive move, not a jump, and stripping it out would understate the diffusive vol. impliedMovePct is left null on purpose.",
-  "Price is +8.9% against its 50-day average (uptrend).",
-  "IV Percentile needs 60 daily observations and the log holds 4. Run this daily and it will fill in; until then the field is null and gate G5 stays UNKNOWN."
+  "IV30 interpolated between 29d (29.48%) and 36d (29.49%).",
+  "Short strike 225 at delta 0.266, chosen as the closest to 0.25 among strikes inside the 0.15-0.30 band that carry at least 100 open contracts.",
+  "Earnings are 40 days out and this expiry runs 36 days, so no event sits inside the contract. The 6.39% the straddle prices is ordinary diffusive move, not a jump, and stripping it out would understate the diffusive vol. impliedMovePct is left null on purpose.",
+  "Price is +nan% against its 50-day average (downtrend).",
+  "IV Percentile needs 60 daily observations and the log holds 5. Run this daily and it will fill in; until then the field is null and gate G5 stays UNKNOWN."
  ],
  "inputs": {
-  "iv30": 28.5988,
-  "ivPut25": 30.7641,
-  "ivCall25": 27.214,
-  "ivM1": 27.268,
-  "ivM2": 33.4354,
+  "iv30": 29.479,
+  "ivPut25": 31.6596,
+  "ivCall25": 28.1316,
+  "ivM1": 28.7252,
+  "ivM2": 34.3251,
   "ivRank": null,
   "iv1yLow": null,
   "iv1yHigh": null,
   "ivPercentile": null,
-  "spot": 239.86,
-  "dte": 37,
-  "spreadPct": 4.26,
-  "openInterest": 675,
-  "shortDelta": 0.2403,
+  "spot": 237.75,
+  "dte": 36,
+  "spreadPct": 3.73,
+  "openInterest": 925,
+  "shortDelta": 0.2662,
   "shortStrike": 225.0,
-  "earningsDays": 41,
+  "earningsDays": 40,
   "impliedMovePct": null,
-  "straddleMovePct": 6.29,
+  "straddleMovePct": 6.39,
   "historicalMoves": [
    3.15,
    5.46,
@@ -42,8 +42,8 @@
    8.74
   ],
   "spreadWidth": 5.0,
-  "credit": 0.98,
-  "trendDirection": "up"
+  "credit": 1.11,
+  "trendDirection": "down"
  },
  "ohlcFile": "NVDA_ohlc.csv",
  "ohlcRows": 251
